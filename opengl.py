@@ -247,12 +247,12 @@ def run():
 
     # Create a cubes list
     cubes = []
-    cubes.append(Cube(world, space, (10, 0, 0), color = (1, 0, 0)))
+    cubes.append(Cube(world, space, (0, 0, 0), color = (1, 0, 0)))
     cubes.append(Cube(world, space, (15, 0, 0), color = (0, 1, 0)))
 
     # Camera transform matrix
     camera_matrix = Matrix44()
-    camera_matrix.translate = (10.0, 2, 10.0)
+    camera_matrix.translate = (10.0, 2, 15.0)
 
     # Initialize speeds and directions
     rotation_direction = Vector3()
