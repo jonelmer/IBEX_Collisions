@@ -13,6 +13,8 @@ from gameobjects.vector3 import *
 
 import ode
 
+from monitor import Monitor
+
 
 def resize(width, height):
     glViewport(0, 0, width, height)
@@ -50,12 +52,12 @@ class Cube(object):
 
         # Set parameters for drawing the body
         self.body.shape = "box"
-        self.body.boxsize = size
+        self.size = size
         # self.body.color = color
         self.body.setPosition(position)
 
         # Create a box geom for collision detection
-        self.geom = ode.GeomBox(space, lengths=self.body.boxsize)
+        self.geom = ode.GeomBox(space, lengths=self.size)
         self.geom.setBody(self.body)
 
     fill = False
@@ -63,14 +65,14 @@ class Cube(object):
     num_faces = 6
     num_edges = 12
 
-    vertices = [(0.0, 0.0, 1.0),
-                (1.0, 0.0, 1.0),
-                (1.0, 1.0, 1.0),
-                (0.0, 1.0, 1.0),
-                (0.0, 0.0, 0.0),
-                (1.0, 0.0, 0.0),
-                (1.0, 1.0, 0.0),
-                (0.0, 1.0, 0.0)]
+    vertices = [(-0.5, -0.5, 0.5),
+                (0.5, -0.5, 0.5),
+                (0.5, 0.5, 0.5),
+                (-0.5, 0.5, 0.5),
+                (-0.5, -0.5, -0.5),
+                (0.5, -0.5, -0.5),
+                (0.5, 0.5, -0.5),
+                (-0.5, 0.5, -0.5)]
 
     normals = [(0.0, 0.0, +1.0),  # front
                (0.0, 0.0, -1.0),  # back
@@ -105,7 +107,7 @@ class Cube(object):
 
         # Adjust all the vertices so that the cube is at self.position
         vertices = self.vertices
-        # vertices = [tuple(Vector3(v) * self.body.boxsize) for v in vertices]
+        vertices = [tuple(Vector3(v) * self.size) for v in vertices]
         vertices = [tuple(Vector3(v) + self.body.getPosition()) for v in vertices]
 
         if self.fill:
@@ -139,6 +141,61 @@ class Cube(object):
         pos = self.body.getPosition()
         pos = tuple([pos[0] + x, pos[1] + y, pos[2] + z])
         self.body.setPosition(pos)
+
+    def setPosition(self, x=None, y=None, z=None):
+        pos = list(self.body.getPosition())
+        if x:
+            pos[0] = x
+        if y:
+            pos[1] = y
+        if z:
+            pos[2] = z
+        self.body.setPosition(pos)
+
+
+class Grid(object):
+    def __init__(self, scale=5, size=(20, 0, 20), position = (0, 0, 0), color=(0.2, 0.2, 0.2)):
+
+        # self.position = list(position)
+        self.color = color
+        self.position = position
+        self.size = size
+        self.scale = scale
+
+    vertices = [(0.0, 0.0, 0.0),
+                (1.0, 0.0, 0.0),
+                (1.0, 0.0, 1.0),
+                (0.0, 0.0, 1.0)]
+
+    edge_indices = [(0, 1),
+                    (1, 2),
+                    (2, 3),
+                    (3, 0)]
+
+    def render(self):
+
+        glColor(self.color)
+
+        glBegin(GL_LINES)
+
+        for x in xrange(0, self.size[0], self.scale):
+            for z in xrange(0, self.size[2], self.scale):
+
+                offset = (x, 0, z);
+
+                # Adjust all the vertices so that the grid is at self.position
+                vertices = self.vertices
+                vertices = [tuple(Vector3(v) * self.scale) for v in vertices]
+                vertices = [tuple(Vector3(v) + self.position) for v in vertices]
+                vertices = [tuple(Vector3(v) + offset) for v in vertices]
+
+                for edge_no in xrange(4):
+                    v1, v2 = self.edge_indices[edge_no]
+
+                    glVertex(vertices[v1])
+                    glVertex(vertices[v2])
+
+        glEnd()
 
 
 #### Not needed but has some tricks in it
@@ -221,6 +278,8 @@ def run():
     pygame.init()
     screen = pygame.display.set_mode(SCREEN_SIZE, HWSURFACE | OPENGL | DOUBLEBUF)
 
+    pygame.display.set_caption("Collision Monitor")
+
     resize(*SCREEN_SIZE)
     init()
 
@@ -229,10 +288,6 @@ def run():
     glMaterial(GL_FRONT, GL_AMBIENT, (0.1, 0.1, 0.1, 1.0))
     glMaterial(GL_FRONT, GL_DIFFUSE, (1.0, 1.0, 1.0, 1.0))
 
-    # This object renders the 'map'
-    # map = Map()
-
-    ######
     # Create a world object
     world = ode.World()
 
@@ -241,12 +296,22 @@ def run():
 
     # Create a cubes list
     cubes = []
-    cubes.append(Cube(world, space, (0, 0, 0), color=(1, 0, 0)))
-    cubes.append(Cube(world, space, (15, 0, 0), color=(0, 1, 0)))
+    cubes.append(Cube(world, space, (0, 1, 10), color=(1, 0, 0), size=(2.0, 2.0, 2.0)))
+    cubes.append(Cube(world, space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
+
+    # Attach monitors
+    monitors = []
+    monitors.append(Monitor("TE:NDW1720:MOT:MTR0101.RBV"))
+    monitors.append(Monitor("TE:NDW1720:MOT:MTR0102.RBV"))
+    for monitor in monitors: monitor.start()
+
+    # Make a grid
+    grid = Grid(scale=1, position=(0, 0, 0))
 
     # Camera transform matrix
     camera_matrix = Matrix44()
-    camera_matrix.translate = (10.0, 2, 15.0)
+    camera_matrix.translate = (10.0, 10, 30.0)
+    camera_matrix *= Matrix44.xyz_rotation(radians(-25), 0, 0)
 
     # Initialize speeds and directions
     rotation_direction = Vector3()
@@ -282,9 +347,9 @@ def run():
             rotation_direction.y = +1.0
         elif pressed[K_RIGHT]:
             rotation_direction.y = -1.0
-        if pressed[K_UP]:
+        if pressed[K_DOWN]:
             rotation_direction.x = -1.0
-        elif pressed[K_DOWN]:
+        elif pressed[K_UP]:
             rotation_direction.x = +1.0
         if pressed[K_z]:
             rotation_direction.z = -1.0
@@ -330,13 +395,20 @@ def run():
         # Move the cube
         cubes[0].move(move_box * movement_speed * time_passed_seconds)
 
-        # Render the map
-        for cube in cubes: cube.render()
+        # Render
 
+        cubes[0].setPosition(x=monitors[0].value)
+        cubes[1].setPosition(z=monitors[1].value)
+        for cube, monitor in zip(cubes, monitors):
+            #cube.setPosition(monitor.value)
+            cube.render()
+
+        grid.render()
+
+        # Check for collisions
         space.collide(None, collision)
 
         # Show the screen
         pygame.display.flip()
-
 
 run()
