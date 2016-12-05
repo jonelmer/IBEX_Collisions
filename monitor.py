@@ -43,7 +43,7 @@ class Monitor(object):
 
     def update(self, epics_args, user_args):
         self.value = epics_args['pv_value']
-        print(self.value)
+        #print(self.value)
 
     def stop(self):
         self.channel.clear_event()

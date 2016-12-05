@@ -13,6 +13,8 @@ from gameobjects.vector3 import *
 
 import ode
 
+import numpy as np
+
 from monitor import Monitor
 
 
@@ -23,6 +25,14 @@ def resize(width, height):
     gluPerspective(60.0, float(width) / height, .1, 1000.)
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
+
+
+def rotation_matrix(rx=0, ry=0, rz=0, angle=None):
+    if angle: rz, ry, rz = angle
+    Rx = np.array([[1, 0, 0], [0, cos(rx), -sin(rx)], [0, sin(rx), cos(rx)]])
+    Ry = np.array([[cos(ry), 0, -sin(ry)], [0, 1, 0], [sin(ry), 0, cos(ry)]])
+    Rz = np.array([[cos(rz), -sin(rz), 0], [sin(rz), cos(rz), 0], [0, 0, 1]])
+    return np.dot(Rx, np.dot(Ry, Rz))
 
 
 def init():
@@ -39,7 +49,7 @@ def init():
 
 
 class Cube(object):
-    def __init__(self, world, space, position, size=(1, 1, 1), color=(1, 1, 1)):
+    def __init__(self, world, space, position, size=(1, 1, 1), color=(1, 1, 1), origin=(0, 0, 0), angle=(0, 0, 0)):
 
         # self.position = list(position)
         self.color = color
@@ -59,6 +69,9 @@ class Cube(object):
         # Create a box geom for collision detection
         self.geom = ode.GeomBox(space, lengths=self.size)
         self.geom.setBody(self.body)
+
+        self.origin = origin
+        self.angle = angle
 
     fill = False
 
@@ -108,7 +121,15 @@ class Cube(object):
         # Adjust all the vertices so that the cube is at self.position
         vertices = self.vertices
         vertices = [tuple(Vector3(v) * self.size) for v in vertices]
-        vertices = [tuple(Vector3(v) + self.body.getPosition()) for v in vertices]
+        #vertices = [tuple(Vector3(v) + self.body.getPosition()) for v in vertices]
+
+        x, y, z = self.body.getPosition()
+        R = self.body.getRotation()
+        rot = [[R[0], R[3], R[6], 0.],
+               [R[1], R[4], R[7], 0.],
+               [R[2], R[5], R[8], 0.],
+               [x, y, z, 1.0]]
+        rot = np.array(rot)
 
         if self.fill:
             # Draw all 6 faces of the cube
@@ -130,11 +151,15 @@ class Cube(object):
             glBegin(GL_LINES)
 
             for edge_no in xrange(self.num_edges):
-                v1, v2 = self.edge_indices[edge_no]
+                vertex_index = self.edge_indices[edge_no]
 
-                glVertex(vertices[v1])
-                glVertex(vertices[v2])
+                for i in vertex_index:
+                    point = np.array([vertices[i][0], vertices[i][1], vertices[i][2], 1]).T
+                    #print rot
+                    #print np.dot(point, rot)
 
+                    glVertex(np.dot(point, rot))
+                    #glVertex(vertices[i])
             glEnd()
 
     def move(self, x=0, y=0, z=0):
@@ -151,6 +176,24 @@ class Cube(object):
         if z:
             pos[2] = z
         self.body.setPosition(pos)
+
+    def setRotatation(self, tx=0, ty=0, tz=0, origin=None):
+        rx, ry, rz = [a - r for a, r in zip(self.angle, (tx, ty, tz))]
+
+        if origin is None: origin = self.origin
+
+        # Calculate the new position
+        pos = list(self.body.getPosition())
+        pos = [p - o for p, o in zip(pos, origin)]
+        rot = rotation_matrix(rx, ry, rz)
+        pos = np.dot(pos, rot)
+        pos = [p + o for p, o in zip(pos, origin)]
+        self.body.setPosition(pos)
+
+        # Update the rotation
+        self.angle = (tx, ty, tz)
+        self.body.setRotation(rotation_matrix(angle=self.angle).reshape(9))
+
 
 
 class Grid(object):
@@ -298,11 +341,17 @@ def run():
     cubes = []
     cubes.append(Cube(world, space, (0, 1, 10), color=(1, 0, 0), size=(2.0, 2.0, 2.0)))
     cubes.append(Cube(world, space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
+    cubes.append(Cube(world, space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
+
+######## can rotate, but need to update rendering!!
+    #cubes[0].body.setQuaternion((0.5, 0, 1, 0))
+    #cubes[0].rotate((0, radians(30), 0))
 
     # Attach monitors
     monitors = []
     monitors.append(Monitor("TE:NDW1720:MOT:MTR0101.RBV"))
     monitors.append(Monitor("TE:NDW1720:MOT:MTR0102.RBV"))
+    monitors.append(Monitor("TE:NDW1720:MOT:MTR0103.RBV"))
     for monitor in monitors: monitor.start()
 
     # Make a grid
@@ -310,7 +359,8 @@ def run():
 
     # Camera transform matrix
     camera_matrix = Matrix44()
-    camera_matrix.translate = (10.0, 10, 30.0)
+    camera_matrix.translate = (15.0, 10.0, 30.0)
+    camera_matrix *= Matrix44.xyz_rotation(0, radians(15), 0)
     camera_matrix *= Matrix44.xyz_rotation(radians(-25), 0, 0)
 
     # Initialize speeds and directions
@@ -383,8 +433,7 @@ def run():
         heading = Vector3(camera_matrix.right)
         movement = heading * movement_direction.x * movement_speed
         right = movement * time_passed_seconds
-        ###### Can't seem to get sideways movement to work!!
-        # camera_matrix.move(forward, right)
+        camera_matrix.translate += right
 
         # Upload the inverse camera matrix to OpenGL
         glLoadMatrixd(camera_matrix.get_inverse().to_opengl())
@@ -399,7 +448,9 @@ def run():
 
         cubes[0].setPosition(x=monitors[0].value)
         cubes[1].setPosition(z=monitors[1].value)
-        for cube, monitor in zip(cubes, monitors):
+        #cubes[2].setPosition(x=monitors[0].value, z=monitors[1].value)
+        cubes[2].setRotatation(ty=monitors[2].value)
+        for cube in cubes:
             #cube.setPosition(monitor.value)
             cube.render()
 
