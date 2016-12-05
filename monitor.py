@@ -1,4 +1,7 @@
 import matplotlib.pyplot as plt
+
+#from genie_python.genie_startup import *
+
 from CaChannel import CaChannel
 from CaChannel import CaChannelException
 import ca
@@ -118,10 +121,7 @@ def updateGraph(name, pv_value):
 #    # print "new value for ", user_args[0], " = ", epics_args['pv_value']
 #    threading.Thread(target=updateGraph, args=(user_args[0], epics_args['pv_value'])).start()
 
-
-# Connect to motor A
-mon = Monitor("IN:IMAT:SKFCHOPPER_02:PHAS")
-#mon = Monitor("TE:NDW1720:MOT:MTR0101")
+mon = Monitor("TE:NDW1720:MOT:MTR0101.RBV")
 mon.start()
 
 input()
