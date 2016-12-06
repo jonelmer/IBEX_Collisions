@@ -5,7 +5,7 @@ import numpy as np
 class SimulatedMotor(object):
 
     def __init__(self, speed=4.096, acceleration=1.0, resolution=0.01):
-        self.speed = speed
+        self.speed = abs(speed)
         self.acceleration = acceleration
         self.resolution = resolution
 
@@ -16,7 +16,7 @@ class SimulatedMotor(object):
             return self.profile
         # Calculate displacement
         s = finish - start
-        v = abs(self.speed)
+        v = self.speed
         a = self.acceleration
         d = self.resolution
         dir = 1
@@ -64,7 +64,7 @@ class SimulatedMotor(object):
                 velo = np.append(velo, v)
                 disp = np.append(disp, sa + v * (t - ta))
 
-            self.profile = start + (disp * dir)
+        self.profile = start + (disp * dir)
         return self.profile
         # return time, velo * dir, start + (disp * dir)
 

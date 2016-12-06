@@ -51,11 +51,14 @@ class Monitor(object):
 
 
 class MonitorQueue(Monitor):
-    def __init__(self, args):
+    def __init__(self, pv, initial=None):
         self.queue = []
         self.time = None
+        self.frozen = False
+        if initial:
+            self.queue.append(initial)
         #super(MonitorQueue, self).__init__()
-        Monitor.__init__(self, args)
+        Monitor.__init__(self, pv)
 
     def update(self, epics_args, user_args):
         value = epics_args['pv_value']
@@ -63,8 +66,9 @@ class MonitorQueue(Monitor):
             print "Duplicate value " + str(value)
             pass
         else:
-            self.queue.append(value)
-            self.time = time.time()
+            if not self.frozen:
+                self.queue.append(value)
+                self.time = time.time()
         print(self.pv, self.queue, self.time)
 
 
