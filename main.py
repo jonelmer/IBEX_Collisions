@@ -16,6 +16,7 @@ import ode
 import numpy as np
 
 from monitor import Monitor
+from simulate import SimulatedMotor
 
 
 def resize(width, height):
@@ -178,7 +179,7 @@ class Cube(object):
         self.body.setPosition(pos)
 
     def setRotatation(self, tx=0, ty=0, tz=0, origin=None):
-        rx, ry, rz = [a - r for a, r in zip(self.angle, (tx, ty, tz))]
+        rx, ry, rz = [r - a for a, r in zip(self.angle, (tx, ty, tz))]
 
         if origin is None: origin = self.origin
 
@@ -192,7 +193,7 @@ class Cube(object):
 
         # Update the rotation
         self.angle = (tx, ty, tz)
-        self.body.setRotation(rotation_matrix(angle=self.angle).reshape(9))
+        self.body.setRotation(rotation_matrix(angle=self.angle).T.reshape(9))
 
 
 
@@ -296,6 +297,13 @@ def collision(args, geom1, geom2):
         square(10, 10)
 
 
+def simCollision(args, geom1, geom2):
+    contacts = ode.collide(geom1, geom2)
+    if contacts:
+        # print("Looks like a crash!")
+        square(70, 10, color=(1, 0.5, 0))
+
+
 def square(x, y, w=50, h=50, color=(1, 0, 0)):
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
@@ -334,25 +342,51 @@ def run():
     # Create a world object
     world = ode.World()
 
-    # Create a space object
+    # Create a space object for the live world
     space = ode.Space()
 
-    # Create a cubes list
-    cubes = []
-    cubes.append(Cube(world, space, (0, 1, 10), color=(1, 0, 0), size=(2.0, 2.0, 2.0)))
-    cubes.append(Cube(world, space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
-    cubes.append(Cube(world, space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
+    # Create a space object for the simulated world
+    simulation = ode.Space()
 
-######## can rotate, but need to update rendering!!
-    #cubes[0].body.setQuaternion((0.5, 0, 1, 0))
-    #cubes[0].rotate((0, radians(30), 0))
+    # Create a readback list
+    readbacks = []
+    readbacks.append(Cube(world, space, (0, 1, 10), color=(1, 0, 0), size=(2.0, 2.0, 2.0)))
+    readbacks.append(Cube(world, space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
+    readbacks.append(Cube(world, space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
 
-    # Attach monitors
+    # Create ghost cube list
+    ghosts = []
+    ghosts.append(Cube(world, simulation, (0, 1, 10), color=(1, 0.8, 0.8), size=(2.0, 2.0, 2.0)))
+    ghosts.append(Cube(world, simulation, (10, 1, 0), color=(0.8, 1, 0.8), size=(2.0, 2.0, 2.0)))
+    ghosts.append(Cube(world, simulation, (5, 1, 10), color=(0.8, 0.8, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
+
+    # Attach monitors to readbacks
     monitors = []
     monitors.append(Monitor("TE:NDW1720:MOT:MTR0101.RBV"))
     monitors.append(Monitor("TE:NDW1720:MOT:MTR0102.RBV"))
     monitors.append(Monitor("TE:NDW1720:MOT:MTR0103.RBV"))
     for monitor in monitors: monitor.start()
+
+    # Attach monitors to setpoints
+    setpoints = []
+    setpoints.append(Monitor("TE:NDW1720:MOT:MTR0101"))
+    setpoints.append(Monitor("TE:NDW1720:MOT:MTR0102"))
+    setpoints.append(Monitor("TE:NDW1720:MOT:MTR0103"))
+
+    for monitor in setpoints: monitor.start()
+
+    # Create some simulated motors
+    motors = []
+    motors.append(SimulatedMotor())
+    motors.append(SimulatedMotor())
+    motors.append(SimulatedMotor(speed=32.76800, acceleration=32.76800))
+
+    # Generate some profiles
+    profiles = []
+    profiles.append(np.append(motors[0].move(0, 20), motors[0].move(20, 0)))
+    profiles.append(np.append(motors[1].move(2, 18), motors[1].move(18, 2)))
+    profiles.append(np.append(np.append(motors[2].move(0, 90), motors[2].move(90, 180)), motors[2].move(180, 360)))
+
 
     # Make a grid
     grid = Grid(scale=1, position=(0, 0, 0))
@@ -370,6 +404,8 @@ def run():
     movement_speed = 5.0
 
     move_box = 0
+
+    counter = 0
 
     while True:
 
@@ -442,24 +478,37 @@ def run():
         glLight(GL_LIGHT0, GL_POSITION, (0, 1.5, 1, 0))
 
         # Move the cube
-        cubes[0].move(move_box * movement_speed * time_passed_seconds)
+        readbacks[0].move(move_box * movement_speed * time_passed_seconds)
 
-        # Render
+        # Move the cubes
 
-        cubes[0].setPosition(x=monitors[0].value)
-        cubes[1].setPosition(z=monitors[1].value)
-        #cubes[2].setPosition(x=monitors[0].value, z=monitors[1].value)
-        cubes[2].setRotatation(ty=monitors[2].value)
-        for cube in cubes:
-            #cube.setPosition(monitor.value)
+        readbacks[0].setPosition(x=monitors[0].value)
+        readbacks[1].setPosition(z=monitors[1].value)
+        readbacks[2].setRotatation(ty=radians(monitors[2].value))
+
+        ghosts[0].setPosition(x=profiles[0][counter % len(profiles[0])])
+        ghosts[1].setPosition(z=profiles[1][counter % len(profiles[1])])
+        ghosts[2].setRotatation(ty=radians(profiles[2][counter % len(profiles[2])]))
+
+        #ghosts[2].setPosition(x=1)
+
+        # Render!!
+        for cube in readbacks:
+            cube.render()
+        for cube in ghosts:
             cube.render()
 
         grid.render()
 
         # Check for collisions
         space.collide(None, collision)
+        simulation.collide(None, simCollision)
 
         # Show the screen
         pygame.display.flip()
+
+        pygame.time.wait(10)
+
+        counter += 1
 
 run()
