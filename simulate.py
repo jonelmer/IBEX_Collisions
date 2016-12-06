@@ -11,6 +11,9 @@ class SimulatedMotor(object):
 
     # s = u*t + 0.5*a*t**2
     def move(self, start, finish):
+        if start==finish:
+            self.profile = np.array([start])
+            return self.profile
         # Calculate displacement
         s = finish - start
         v = abs(self.speed)
@@ -60,8 +63,19 @@ class SimulatedMotor(object):
                 # Max speed
                 velo = np.append(velo, v)
                 disp = np.append(disp, sa + v * (t - ta))
-        return start + (disp * dir)
+
+            self.profile = start + (disp * dir)
+        return self.profile
         # return time, velo * dir, start + (disp * dir)
+
+    def position(self, index):
+        if index < len(self.profile):
+            return self.profile[index]
+        else:
+            return self.profile[-1]
+
+    def reset(self):
+        self.profile = np.array([self.profile[0]])
 
 
 # Can't deal with different delta t

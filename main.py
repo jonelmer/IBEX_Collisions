@@ -14,8 +14,11 @@ from gameobjects.vector3 import *
 import ode
 
 import numpy as np
+import time as time
 
-from monitor import Monitor
+from genie_python.genie_startup import *
+
+from monitor import Monitor, MonitorQueue
 from simulate import SimulatedMotor
 
 
@@ -290,6 +293,19 @@ class Map(object):
             glCallList(self.display_list)
 
 
+class Counter(object):
+
+    def __init__(self):
+        self.count = 0
+
+    def increment(self):
+        self.count += 1
+        return self.count
+
+    def reset(self):
+        self.count = 0
+
+
 def collision(args, geom1, geom2):
     contacts = ode.collide(geom1, geom2)
     if contacts:
@@ -297,11 +313,12 @@ def collision(args, geom1, geom2):
         square(10, 10)
 
 
-def simCollision(args, geom1, geom2):
+def simCollision(counter, geom1, geom2):
     contacts = ode.collide(geom1, geom2)
     if contacts:
         # print("Looks like a crash!")
         square(70, 10, color=(1, 0.5, 0))
+        counter.increment()
 
 
 def square(x, y, w=50, h=50, color=(1, 0, 0)):
@@ -369,11 +386,16 @@ def run():
 
     # Attach monitors to setpoints
     setpoints = []
-    setpoints.append(Monitor("TE:NDW1720:MOT:MTR0101"))
-    setpoints.append(Monitor("TE:NDW1720:MOT:MTR0102"))
-    setpoints.append(Monitor("TE:NDW1720:MOT:MTR0103"))
+    setpoints.append(MonitorQueue("TE:NDW1720:MOT:MTR0101"))
+    setpoints.append(MonitorQueue("TE:NDW1720:MOT:MTR0102"))
+    setpoints.append(MonitorQueue("TE:NDW1720:MOT:MTR0103"))
 
-    for monitor in setpoints: monitor.start()
+    for setpoint in setpoints: setpoint.start()
+
+    # Move the ghosts to the start
+    ghosts[0].setPosition(x=setpoints[0].last())
+    ghosts[1].setPosition(z=setpoints[1].last())
+    ghosts[2].setRotatation(ty=radians(setpoints[2].last()))
 
     # Create some simulated motors
     motors = []
@@ -406,6 +428,9 @@ def run():
     move_box = 0
 
     counter = 0
+    endcount = 0
+    simrunning=False
+    collisions = Counter()
 
     while True:
 
@@ -477,24 +502,79 @@ def run():
         # Light must be transformed as well
         glLight(GL_LIGHT0, GL_POSITION, (0, 1.5, 1, 0))
 
-        # Move the cube
-        readbacks[0].move(move_box * movement_speed * time_passed_seconds)
+        # Move the cube by keyboard
+        #readbacks[0].move(move_box * movement_speed * time_passed_seconds)
 
         # Move the cubes
-
         readbacks[0].setPosition(x=monitors[0].value)
         readbacks[1].setPosition(z=monitors[1].value)
         readbacks[2].setRotatation(ty=radians(monitors[2].value))
 
-        ghosts[0].setPosition(x=profiles[0][counter % len(profiles[0])])
-        ghosts[1].setPosition(z=profiles[1][counter % len(profiles[1])])
-        ghosts[2].setRotatation(ty=radians(profiles[2][counter % len(profiles[2])]))
+        # Work out if we should start the sim
+        if not simrunning:
+            #print(all([setpoint.initialised() for setpoint in setpoints]))
+            #print(([len(setpoint.queue) for setpoint in setpoints]))
+            if all([setpoint.initialised() for setpoint in setpoints]) and \
+                    any([len(setpoint.queue) > 1 for setpoint in setpoints]):
+                #print "Checking if we're ready to simulate"
+                currenttime = time.time()
+                changetime = max([setpoint.time for setpoint in setpoints])
+                #print currenttime - changetime
+                # Check if enough time has elapsed since the last change
+                if (changetime + 5) < currenttime:
+                    print "Calculating new motion profiles"
+                    # Start the simulation
+                    # Generate the profiles for each motor
+                    for motor, setpoint in zip(motors, setpoints):
+                        set_pv(setpoint.pv + ".STOP", 1)
+                        motor.move(setpoint.first(), setpoint.last())
+                        #setpoint.clear()
+                    endcount = max([len(motor.profile) for motor in motors])
+                    if endcount > 1:
+                        print "Profile length is " + str(endcount)
+                        simrunning = True
+                        counter = 0
+                        collisions.reset()
+                    else:
+                        print "Empty profile"
+
+
+        # Do the simulation
+        if simrunning:
+            #print "Doing simulation step " + str(counter)
+            # Update the positions of the ghosts
+            ghosts[0].setPosition(x=motors[0].position(counter))
+            ghosts[1].setPosition(z=motors[1].position(counter))
+            ghosts[2].setRotatation(ty=radians(motors[2].position(counter)))
+            # Check if we have finished moving
+            if counter >= endcount:
+                print "Finishing simulation"
+                simrunning = False
+                if collisions.count > 0:
+                    print "Looks like a crash!"
+                    for motor, setpoint in zip(motors, setpoints):
+                        # There was a collision!!
+                        setpoint.reset()
+                        motor.reset()
+                    ghosts[0].setPosition(x=setpoints[0].last())
+                    ghosts[1].setPosition(z=setpoints[1].last())
+                    ghosts[2].setRotatation(ty=radians(setpoints[2].last()))
+                else:
+                    print "Moving motors"
+                    for motor, setpoint in zip(motors, setpoints):
+                        setpoint.clear()
+                        set_pv(setpoint.pv + ".SPMG", 2)
+
+        #ghosts[0].setPosition(x=profiles[0][counter % len(profiles[0])])
+        #ghosts[1].setPosition(z=profiles[1][counter % len(profiles[1])])
+        #ghosts[2].setRotatation(ty=radians(profiles[2][counter % len(profiles[2])]))
 
         #ghosts[2].setPosition(x=1)
 
         # Render!!
         for cube in readbacks:
             cube.render()
+            pass
         for cube in ghosts:
             cube.render()
 
@@ -502,12 +582,12 @@ def run():
 
         # Check for collisions
         space.collide(None, collision)
-        simulation.collide(None, simCollision)
+        simulation.collide(collisions, simCollision)
 
         # Show the screen
         pygame.display.flip()
 
-        pygame.time.wait(10)
+        pygame.time.delay(10)
 
         counter += 1
 

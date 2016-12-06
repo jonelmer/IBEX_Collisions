@@ -50,6 +50,60 @@ class Monitor(object):
         self.running = False
 
 
+class MonitorQueue(Monitor):
+    def __init__(self, args):
+        self.queue = []
+        self.time = None
+        #super(MonitorQueue, self).__init__()
+        Monitor.__init__(self, args)
+
+    def update(self, epics_args, user_args):
+        value = epics_args['pv_value']
+        if value == self.last():
+            print "Duplicate value " + str(value)
+            pass
+        else:
+            self.queue.append(value)
+            self.time = time.time()
+        print(self.pv, self.queue, self.time)
+
+
+    def clear(self):
+        """
+        Sets the queue to the last value
+        """
+        self.queue[:] = [self.queue[-1]]
+        #print self.queue
+
+    def reset(self):
+        """
+        Sets the queue to the first value
+        """
+        self.queue[:] = [self.queue[0]]
+        #print self.queue
+
+    def initialised(self):
+        """
+        Is the queue populated?
+        """
+        if len(self.queue) > 0:
+            return True
+        else:
+            return False
+
+    def first(self):
+        if len(self.queue) > 0:
+            return self.queue[0]
+        else:
+            return None
+
+    def last(self):
+        if len(self.queue) > 0:
+            return self.queue[-1]
+        else:
+            return None
+
+
 def test():
     # Geometry
     high = 50.0
