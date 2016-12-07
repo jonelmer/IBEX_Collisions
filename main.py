@@ -305,18 +305,9 @@ class Counter(object):
         self.count = 0
 
 
-def collision(args, geom1, geom2):
+def collisionCB(counter, geom1, geom2):
     contacts = ode.collide(geom1, geom2)
     if contacts:
-        # print("Looks like a crash!")
-        square(10, 10)
-
-
-def simCollision(counter, geom1, geom2):
-    contacts = ode.collide(geom1, geom2)
-    if contacts:
-        # print("Looks like a crash!")
-        square(70, 10, color=(1, 0.5, 0))
         counter.increment()
 
 
@@ -361,8 +352,8 @@ def run():
     # Create a space object for the live world
     space = ode.Space()
 
-    # Create a space object for the simulated world
-    simulation = ode.Space()
+    # Need a toggle to allow moving away from a crash
+    stopMotors = True
 
     # Create a readback list
     readbacks = []
@@ -370,44 +361,13 @@ def run():
     readbacks.append(Cube(world, space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
     readbacks.append(Cube(world, space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
 
-    # Create ghost cube list
-    ghosts = []
-    ghosts.append(Cube(world, simulation, (0, 1, 10), color=(1, 0.8, 0.8), size=(2.0, 2.0, 2.0)))
-    ghosts.append(Cube(world, simulation, (10, 1, 0), color=(0.8, 1, 0.8), size=(2.0, 2.0, 2.0)))
-    ghosts.append(Cube(world, simulation, (5, 1, 10), color=(0.8, 0.8, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
-
     # Attach monitors to readbacks and setpoints
     pvs = ["TE:NDW1720:MOT:MTR0201", "TE:NDW1720:MOT:MTR0202", "TE:NDW1720:MOT:MTR0203"]
     monitors = []
-    setpoints = []
     for pv in pvs:
         monitor = Monitor(pv + ".RBV")
         monitor.start()
         monitors.append(monitor)
-        setpoint = MonitorQueue(pv, monitor.value)
-        setpoint.start()
-        setpoints.append(setpoint)
-
-    for setpoint in setpoints: setpoint.start()
-
-    # Move the ghosts to the start
-    ghosts[0].setPosition(x=setpoints[0].last())
-    ghosts[1].setPosition(z=setpoints[1].last())
-    ghosts[2].setRotatation(ty=radians(setpoints[2].last()))
-
-    # Create some simulated motors
-    dt = 0.01
-    motors = []
-    motors.append(SimulatedMotor(resolution=dt, speed=4.096, acceleration=4.096))
-    motors.append(SimulatedMotor(resolution=dt, speed=4.096, acceleration=4.096))
-    motors.append(SimulatedMotor(resolution=dt, speed=32.76800, acceleration=32.76800))
-
-    # Generate some profiles
-    profiles = []
-    profiles.append(np.append(motors[0].move(0, 20), motors[0].move(20, 0)))
-    profiles.append(np.append(motors[1].move(2, 18), motors[1].move(18, 2)))
-    profiles.append(np.append(np.append(motors[2].move(0, 90), motors[2].move(90, 180)), motors[2].move(180, 360)))
-
 
     # Make a grid
     grid = Grid(scale=1, position=(-1, 0, -1), size=(22, 0, 22))
@@ -426,9 +386,6 @@ def run():
 
     move_box = 0
 
-    counter = 0
-    endcount = 0
-    simrunning=False
     collisions = Counter()
 
     while True:
@@ -452,7 +409,6 @@ def run():
         # Reset rotation and movement directions
         rotation_direction.set(0.0, 0.0, 0.0)
         movement_direction.set(0.0, 0.0, 0.0)
-        move_box = 0
 
         # Modify direction vectors for key presses
         if pressed[K_LEFT]:
@@ -479,6 +435,10 @@ def run():
             move_box = 1
         elif pressed[K_MINUS]:
             move_box = -1
+        if pressed[K_1]:
+            stopMotors = True
+        elif pressed[K_2]:
+            stopMotors = False
 
         # Calculate rotation matrix and multiply by camera matrix
         rotation = rotation_direction * rotation_speed * time_passed_seconds
@@ -503,108 +463,33 @@ def run():
         # Light must be transformed as well
         glLight(GL_LIGHT0, GL_POSITION, (0, 1.5, 1, 0))
 
-        # Move the cube by keyboard
-        #readbacks[0].move(move_box * movement_speed * time_passed_seconds)
-
         # Move the cubes
         readbacks[0].setPosition(x=monitors[0].value)
         readbacks[1].setPosition(z=monitors[1].value)
         readbacks[2].setRotatation(ty=radians(monitors[2].value))
 
-        # Work out if we should start the sim
-        if not simrunning:
-            #print(all([setpoint.initialised() for setpoint in setpoints]))
-            #print(([len(setpoint.queue) for setpoint in setpoints]))
-            if any([setpoint.changed() for setpoint in setpoints]) and \
-                    any([len(setpoint.queue) > 1 for setpoint in setpoints]):
-                #print "Checking if we're ready to simulate"
-                currenttime = time.time()
-                changetime = max([setpoint.time for setpoint in setpoints])
-                #print currenttime - changetime
-                # Check if enough time has elapsed since the last change
-                if (changetime + 5) < currenttime:
-                    print "Calculating new motion profiles"
-                    # Start the simulation
-                    # Generate the profiles for each motor
-                    for motor, setpoint in zip(motors, setpoints):
-                        #set_pv(setpoint.pv + ".STOP", 1)
-                        #set_pv(setpoint.pv + ".SPMG", 1)
-                        motor.move(setpoint.first(), setpoint.last())
-                        if len(setpoint.queue) == 1:
-                            # make sure to freeze the setpoint monitors otherwise they may move when we dont want them to
-                            # can use this as a check for if we want to move...
-                            # Might need to rework this behaviour!!!
-                            setpoint.frozen = True
-                    endcount = max([len(motor.profile) for motor in motors])
-                    if endcount > 1:
-                        print "Profile length is " + str(endcount)
-                        simrunning = True
-                        counter = 0
-                        collisions.reset()
-                    else:
-                        print "Empty profile"
-
-
-        # Do the simulation
-        if simrunning:
-            nextcount = counter + int(time_passed_seconds/dt)
-            #print "Doing simulation up to " + str(nextcount)
-            for step in xrange(counter, nextcount):
-                #print "Doing simulation step " + str(step)
-                # Update the positions of the ghosts
-                ghosts[0].setPosition(x=motors[0].position(step))
-                ghosts[1].setPosition(z=motors[1].position(step))
-                ghosts[2].setRotatation(ty=radians(motors[2].position(step)))
-                # Check if we have finished moving
-                if step == endcount:
-                    print "Finishing simulation"
-                    simrunning = False
-                    if collisions.count > 0:
-                        print "Looks like a crash!"
-                        # Could check for collisions as we go along, no need to show the whole move
-                        for motor, setpoint in zip(motors, setpoints):
-                            # There was a collision!!
-                            setpoint.reset()
-                            motor.reset()
-                            print setpoint.queue
-                        ghosts[0].setPosition(x=setpoints[0].first())
-                        ghosts[1].setPosition(z=setpoints[1].first())
-                        ghosts[2].setRotatation(ty=radians(setpoints[2].first()))
-                        break
-                    else:
-                        print "Moving motors"
-                        for motor, setpoint in zip(motors, setpoints):
-                            # Only start to move if the motor needs to move
-                            if len(setpoint.queue) > 1:
-                                print setpoint.queue
-                                set_pv(setpoint.pv + ".SPMG", 2)
-                                setpoint.clear()
-                            setpoint.frozen = False
-                        break
-                counter = nextcount
-
-        #ghosts[0].setPosition(x=profiles[0][counter % len(profiles[0])])
-        #ghosts[1].setPosition(z=profiles[1][counter % len(profiles[1])])
-        #ghosts[2].setRotatation(ty=radians(profiles[2][counter % len(profiles[2])]))
-
-        #ghosts[2].setPosition(x=1)
+        # Check for collisions
+        collisions.reset()
+        space.collide(collisions, collisionCB)
 
         # Render!!
         for cube in readbacks:
             cube.render()
             pass
-        for cube in ghosts:
-            cube.render()
 
         grid.render()
 
-        # Check for collisions
-        space.collide(None, collision)
-        simulation.collide(collisions, simCollision)
+        if collisions.count:
+            if stopMotors:
+                square(10, 10)
+                for pv in pvs:
+                    set_pv(pv + ".STOP", 1)
+            else:
+                square(10, 10, color=(1, 0.5, 0))
 
         # Show the screen
         pygame.display.flip()
 
-        pygame.time.delay(10)
+        pygame.time.wait(10)
 
 run()
