@@ -199,7 +199,6 @@ class Cube(object):
         self.body.setRotation(rotation_matrix(angle=self.angle).T.reshape(9))
 
 
-
 class Grid(object):
     def __init__(self, scale=5, size=(20, 0, 20), position = (0, 0, 0), color=(0.2, 0.2, 0.2)):
 
@@ -378,7 +377,7 @@ def run():
     ghosts.append(Cube(world, simulation, (5, 1, 10), color=(0.8, 0.8, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
 
     # Attach monitors to readbacks and setpoints
-    pvs = ["TE:NDW1720:MOT:MTR0201", "TE:NDW1720:MOT:MTR0102", "TE:NDW1720:MOT:MTR0103"]
+    pvs = ["TE:NDW1720:MOT:MTR0201", "TE:NDW1720:MOT:MTR0202", "TE:NDW1720:MOT:MTR0203"]
     monitors = []
     setpoints = []
     for pv in pvs:
@@ -516,7 +515,7 @@ def run():
         if not simrunning:
             #print(all([setpoint.initialised() for setpoint in setpoints]))
             #print(([len(setpoint.queue) for setpoint in setpoints]))
-            if all([setpoint.initialised() for setpoint in setpoints]) and \
+            if any([setpoint.changed() for setpoint in setpoints]) and \
                     any([len(setpoint.queue) > 1 for setpoint in setpoints]):
                 #print "Checking if we're ready to simulate"
                 currenttime = time.time()
@@ -528,8 +527,8 @@ def run():
                     # Start the simulation
                     # Generate the profiles for each motor
                     for motor, setpoint in zip(motors, setpoints):
-                        set_pv(setpoint.pv + ".STOP", 1)
-                        set_pv(setpoint.pv + ".SPMG", 1)
+                        #set_pv(setpoint.pv + ".STOP", 1)
+                        #set_pv(setpoint.pv + ".SPMG", 1)
                         motor.move(setpoint.first(), setpoint.last())
                         if len(setpoint.queue) == 1:
                             # make sure to freeze the setpoint monitors otherwise they may move when we dont want them to
@@ -606,8 +605,6 @@ def run():
         # Show the screen
         pygame.display.flip()
 
-        #pygame.time.delay(10)
-
-        #counter += 1
+        pygame.time.delay(10)
 
 run()

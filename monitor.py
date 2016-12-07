@@ -107,6 +107,12 @@ class MonitorQueue(Monitor):
         else:
             return None
 
+    def changed(self):
+        if self.first() == self.last():
+            return False
+        else:
+            return True
+
 
 def test():
     # Geometry
