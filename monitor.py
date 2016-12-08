@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-#from genie_python.genie_startup import *
+from genie_python.genie_startup import *
 
 from CaChannel import CaChannel
 from CaChannel import CaChannelException
@@ -40,6 +40,7 @@ class Monitor(object):
             None)
         self.channel.pend_event()
         self.running = True
+        #self.value = get_pv(self.pv)
 
     def update(self, epics_args, user_args):
         self.value = epics_args['pv_value']

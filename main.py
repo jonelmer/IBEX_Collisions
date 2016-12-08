@@ -4,6 +4,7 @@ from math import radians
 
 from OpenGL.GL import *
 from OpenGL.GLU import *
+from OpenGL.GLUT import *
 
 import pygame
 from pygame.locals import *
@@ -14,7 +15,6 @@ from gameobjects.vector3 import *
 import ode
 
 import numpy as np
-import time as time
 
 from genie_python.genie_startup import *
 
@@ -52,7 +52,7 @@ def init():
     glLight(GL_LIGHT0, GL_POSITION, (0, 1, 1, 0))
 
 
-class Cube(object):
+class GeometryBox(object):
     def __init__(self, world, space, position, size=(1, 1, 1), color=(1, 1, 1), origin=(0, 0, 0), angle=(0, 0, 0)):
 
         # self.position = list(position)
@@ -75,7 +75,7 @@ class Cube(object):
         self.geom.setBody(self.body)
 
         self.origin = origin
-        self.angle = angle
+        self.angles = angle
 
     fill = False
 
@@ -181,8 +181,13 @@ class Cube(object):
             pos[2] = z
         self.body.setPosition(pos)
 
-    def setRotatation(self, tx=0, ty=0, tz=0, origin=None):
-        rx, ry, rz = [r - a for a, r in zip(self.angle, (tx, ty, tz))]
+    def getPosition(self):
+        return self.body.getPosition()
+
+    def setRotation(self, tx=0, ty=0, tz=0, origin=None, angles=None):
+        if angles:
+            tx, ty, tx = angles
+        rx, ry, rz = [r - a for a, r in zip(self.angles, (tx, ty, tz))]
 
         if origin is None: origin = self.origin
 
@@ -195,8 +200,11 @@ class Cube(object):
         self.body.setPosition(pos)
 
         # Update the rotation
-        self.angle = (tx, ty, tz)
-        self.body.setRotation(rotation_matrix(angle=self.angle).T.reshape(9))
+        self.angles = (tx, ty, tz)
+        self.body.setRotation(rotation_matrix(angle=self.angles).T.reshape(9))
+
+    def getRotation(self):
+        return self.angles
 
 
 class Grid(object):
@@ -264,7 +272,7 @@ class Map(object):
                 if (r, g, b) != (255, 255, 255):
                     gl_col = (r / 255.0, g / 255.0, b / 255.0)
                     position = (float(x), 0.0, float(y))
-                    cube = Cube(position, gl_col)
+                    cube = GeometryBox(position, gl_col)
                     self.cubes.append(cube)
 
         map_surface.unlock()
@@ -327,9 +335,36 @@ def square(x, y, w=50, h=50, color=(1, 0, 0)):
     glVertex((x + w, y + h))
     glVertex((x, y + h))
     glEnd()
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)
+
+
+def text(x, y, string, color=(0.4, 0.4, 0.4), size=32):
+    color = [c * 255 for c in color]
+    color.append(255)
+
+    y = y + size*0.7
+
+    glMatrixMode(GL_PROJECTION)
+    glPushMatrix()
+    glLoadIdentity()
+    glOrtho(0, SCREEN_SIZE[0], SCREEN_SIZE[1], 0, 0, 1)
+    glMatrixMode(GL_MODELVIEW)
+    glLoadIdentity()
+    glDisable(GL_CULL_FACE)
+    glClear(GL_DEPTH_BUFFER_BIT)
+    glColor(color)
+
+    font = pygame.font.Font(None, size)
+    textSurface = font.render(string, True, color, (0, 0, 0, 255))
+    textData = pygame.image.tostring(textSurface, "RGBA", True)
+    glRasterPos2d(x, y)
+    glDrawPixels(textSurface.get_width(), textSurface.get_height(), GL_RGBA, GL_UNSIGNED_BYTE, textData)
+
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)
 
 
 def run():
@@ -351,17 +386,61 @@ def run():
 
     # Create a space object for the live world
     space = ode.Space()
+    stackspace = ode.Space()
 
     # Need a toggle to allow moving away from a crash
     stopMotors = True
+    autoRestart = True
 
-    # Create a readback list
-    readbacks = []
-    readbacks.append(Cube(world, space, (0, 1, 10), color=(1, 0, 0), size=(2.0, 2.0, 2.0)))
-    readbacks.append(Cube(world, space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
-    readbacks.append(Cube(world, space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
+    # ------------------------------------------------------------------------------------------------------------------
+    # Config happens here:
 
-    # Attach monitors to readbacks and setpoints
+    # Define the geometry of the system
+    geometries = []
+    geometries.append(GeometryBox(world, space, (0, 1, 10), color=(1, 0, 0), size=(2.0, 2.0, 2.0)))
+    geometries.append(GeometryBox(world, space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
+    geometries.append(GeometryBox(world, space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
+    geometries.append(
+        GeometryBox(world, stackspace, (10, 0.5, 10), color=(1, 0, 1), size=(22.0, 1.0, 22.0), origin=(10, 0, 10)))
+    geometries.append(
+        GeometryBox(world, stackspace, (0, 1.6, 10), color=(1, 1, 0), size=(2.0, 1.0, 22.0), origin=(10, 0, 10)))
+    geometries.append(
+        GeometryBox(world, stackspace, (0, 3.2, 0), color=(0, 1, 1), size=(2, 2, 2), origin=(10, 0, 10)))
+    geometries.append(
+        GeometryBox(world, stackspace, (20, 3.2, 10), color=(1, 1, 1), size=(10, 2, 2)))
+
+    # Generate move functions
+    moves = []
+
+    def move(geometry, monitors):
+        geometry.setPosition(x=monitors[0].value)
+    moves.append(move)
+
+    def move(geometry, monitors):
+        geometry.setPosition(z=monitors[1].value)
+    moves.append(move)
+
+    def move(geometry, monitors):
+        geometry.setRotation(ty=radians(monitors[2].value))
+    moves.append(move)
+
+    def move(geometry, monitors):
+        geometry.setRotation(ty=radians(monitors[2].value))
+    moves.append(move)
+
+    def move(geometry, monitors):
+        geometry.setRotation(angles=(0, 0, 0))
+        geometry.setPosition(x=monitors[0].value)
+        geometry.setRotation(ty=radians(monitors[2].value))
+    moves.append(move)
+
+    def move(geometry, monitors):
+        geometry.setRotation(angles=(0, 0, 0))
+        geometry.setPosition(x=monitors[0].value, z=monitors[1].value)
+        geometry.setRotation(ty=radians(monitors[2].value))
+    moves.append(move)
+
+    # Attach monitors to readbacks
     pvs = ["TE:NDW1720:MOT:MTR0201", "TE:NDW1720:MOT:MTR0202", "TE:NDW1720:MOT:MTR0203"]
     monitors = []
     for pv in pvs:
@@ -369,22 +448,26 @@ def run():
         monitor.start()
         monitors.append(monitor)
 
+    # ------------------------------------------------------------------------------------------------------------------
+
     # Make a grid
     grid = Grid(scale=1, position=(-1, 0, -1), size=(22, 0, 22))
 
     # Camera transform matrix
-    camera_matrix = Matrix44()
-    camera_matrix.translate = (15.0, 10.0, 30.0)
-    camera_matrix *= Matrix44.xyz_rotation(0, radians(15), 0)
-    camera_matrix *= Matrix44.xyz_rotation(radians(-25), 0, 0)
+    def initialise_camera():
+        camera_matrix = Matrix44()
+        camera_matrix.translate = (15.0, 15.0, 30.0)
+        camera_matrix *= Matrix44.xyz_rotation(0, radians(15), 0)
+        camera_matrix *= Matrix44.xyz_rotation(radians(-35), 0, 0)
+        return camera_matrix
 
-    # Initialize speeds and directions
+    camera_matrix = initialise_camera()
+
+    # Initialize speeds and directions for camera
     rotation_direction = Vector3()
     rotation_speed = radians(90.0)
     movement_direction = Vector3()
     movement_speed = 5.0
-
-    move_box = 0
 
     collisions = Counter()
 
@@ -431,14 +514,20 @@ def run():
             movement_direction.x = -1.0
         elif pressed[K_d]:
             movement_direction.x = +1.0
-        if pressed[K_PLUS] or pressed[K_EQUALS]:
-            move_box = 1
-        elif pressed[K_MINUS]:
-            move_box = -1
+        if pressed[K_q]:
+            movement_direction.y = -1.0
+        elif pressed[K_e]:
+            movement_direction.y = +1.0
         if pressed[K_1]:
             stopMotors = True
         elif pressed[K_2]:
             stopMotors = False
+        if pressed[K_3]:
+            autoRestart = True
+        elif pressed[K_4]:
+            autoRestart = False
+        if pressed[K_SPACE]:
+            camera_matrix = initialise_camera()
 
         # Calculate rotation matrix and multiply by camera matrix
         rotation = rotation_direction * rotation_speed * time_passed_seconds
@@ -457,6 +546,12 @@ def run():
         right = movement * time_passed_seconds
         camera_matrix.translate += right
 
+        # Calculate strafe movement and add it to camera matrix translate
+        heading = Vector3(camera_matrix.up)
+        movement = heading * movement_direction.y * movement_speed
+        up = movement * time_passed_seconds
+        camera_matrix.translate += up
+
         # Upload the inverse camera matrix to OpenGL
         glLoadMatrixd(camera_matrix.get_inverse().to_opengl())
 
@@ -464,28 +559,49 @@ def run():
         glLight(GL_LIGHT0, GL_POSITION, (0, 1.5, 1, 0))
 
         # Move the cubes
-        readbacks[0].setPosition(x=monitors[0].value)
-        readbacks[1].setPosition(z=monitors[1].value)
-        readbacks[2].setRotatation(ty=radians(monitors[2].value))
+        #geometries[0].setPosition(x=monitors[0].value)
+        #geometries[1].setPosition(z=monitors[1].value)
+        #geometries[2].setRotatation(ty=radians(monitors[2].value))
+
+        for move, geometry in zip(moves, geometries):
+            move(geometry, monitors)
 
         # Check for collisions
         collisions.reset()
-        space.collide(collisions, collisionCB)
+        stackspace.collide(collisions, collisionCB)
 
         # Render!!
-        for cube in readbacks:
-            cube.render()
+        for geometry in geometries:
+            geometry.render()
             pass
 
         grid.render()
 
+        # Display the status icon
         if collisions.count:
             if stopMotors:
                 square(10, 10)
                 for pv in pvs:
                     set_pv(pv + ".STOP", 1)
+                text(70, 10, "Collision detected!")
             else:
                 square(10, 10, color=(1, 0.5, 0))
+                text(70, 10, "Collision ignored!")
+        else:
+            if stopMotors:
+                square(10, 10, color=(0, 1, 0))
+                text(70, 10, "Detecting collisions")
+            else:
+                square(10, 10, color=(1, 1, 0))
+                stopMotors = autoRestart
+                text(70, 10, "Ignoring collisions")
+
+        if autoRestart:
+            text(70, 35, "Auto-restart on")
+        else:
+            text(70, 35, "Auto-restart off")
+
+        #text(70, 10, "Hi")
 
         # Show the screen
         pygame.display.flip()
