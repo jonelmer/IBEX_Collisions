@@ -53,7 +53,7 @@ def init():
 
 
 class GeometryBox(object):
-    def __init__(self, world, space, position, size=(1, 1, 1), color=(1, 1, 1), origin=(0, 0, 0), angle=(0, 0, 0)):
+    def __init__(self, world, space, position, size=(1, 1, 1), color=(1, 1, 1), origin=(0, 0, 0), angle=(0, 0, 0), oversize=1):
 
         # self.position = list(position)
         self.color = color
@@ -71,7 +71,7 @@ class GeometryBox(object):
         self.body.setPosition(position)
 
         # Create a box geom for collision detection
-        self.geom = ode.GeomBox(space, lengths=self.size)
+        self.geom = ode.GeomBox(space, lengths=[s * oversize for s in self.size])
         self.geom.setBody(self.body)
 
         self.origin = origin
@@ -118,9 +118,12 @@ class GeometryBox(object):
                     (2, 6),
                     (3, 7)]
 
-    def render(self):
+    def render(self, color=None):
 
-        glColor(self.color)
+        if color:
+            glColor(color)
+        else:
+            glColor(self.color)
 
         # Adjust all the vertices so that the cube is at self.position
         vertices = self.vertices
@@ -313,10 +316,11 @@ class Counter(object):
         self.count = 0
 
 
-def collisionCB(counter, geom1, geom2):
+def collisionCB((counter, list), geom1, geom2):
     contacts = ode.collide(geom1, geom2)
     if contacts:
         counter.increment()
+        list.append([geom1, geom2])
 
 
 def square(x, y, w=50, h=50, color=(1, 0, 0)):
@@ -400,14 +404,14 @@ def run():
     geometries.append(GeometryBox(world, space, (0, 1, 10), color=(1, 0, 0), size=(2.0, 2.0, 2.0)))
     geometries.append(GeometryBox(world, space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
     geometries.append(GeometryBox(world, space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
+    geometries.append(GeometryBox(world, stackspace,
+                            (10, 0.5, 10), color=(1, 0, 1), size=(22.0, 1.0, 22.0), origin=(10, 0, 10), oversize = 1))
+    geometries.append(GeometryBox(world, stackspace,
+                        (0, 1.6, 10), color=(1, 1, 0), size=(2.0, 1.0, 22.0), origin=(10, 0, 10), oversize = 1))
     geometries.append(
-        GeometryBox(world, stackspace, (10, 0.5, 10), color=(1, 0, 1), size=(22.0, 1.0, 22.0), origin=(10, 0, 10)))
+        GeometryBox(world, stackspace, (0, 3.2, 0), color=(0, 1, 1), size=(2, 2, 2), origin=(10, 0, 10), oversize = 1))
     geometries.append(
-        GeometryBox(world, stackspace, (0, 1.6, 10), color=(1, 1, 0), size=(2.0, 1.0, 22.0), origin=(10, 0, 10)))
-    geometries.append(
-        GeometryBox(world, stackspace, (0, 3.2, 0), color=(0, 1, 1), size=(2, 2, 2), origin=(10, 0, 10)))
-    geometries.append(
-        GeometryBox(world, stackspace, (20, 3.2, 10), color=(1, 1, 1), size=(10, 2, 2)))
+        GeometryBox(world, stackspace, (20, 3.2, 10), color=(1, 1, 1), size=(10, 2, 2), oversize = 1))
 
     # Generate move functions
     moves = []
@@ -441,7 +445,8 @@ def run():
     moves.append(move)
 
     # Attach monitors to readbacks
-    pvs = ["TE:NDW1720:MOT:MTR0201", "TE:NDW1720:MOT:MTR0202", "TE:NDW1720:MOT:MTR0203"]
+    #pvs = ["TE:NDW1720:MOT:MTR0201", "TE:NDW1720:MOT:MTR0202", "TE:NDW1720:MOT:MTR0203"]
+    pvs = ["TE:NDW1720:MOT:MTR0101", "TE:NDW1720:MOT:MTR0102", "TE:NDW1720:MOT:MTR0103"]
     monitors = []
     for pv in pvs:
         monitor = Monitor(pv + ".RBV")
@@ -470,6 +475,7 @@ def run():
     movement_speed = 5.0
 
     collisions = Counter()
+    collisionPairs = []
 
     while True:
 
@@ -558,21 +564,23 @@ def run():
         # Light must be transformed as well
         glLight(GL_LIGHT0, GL_POSITION, (0, 1.5, 1, 0))
 
-        # Move the cubes
-        #geometries[0].setPosition(x=monitors[0].value)
-        #geometries[1].setPosition(z=monitors[1].value)
-        #geometries[2].setRotatation(ty=radians(monitors[2].value))
-
         for move, geometry in zip(moves, geometries):
             move(geometry, monitors)
 
         # Check for collisions
-        collisions.reset()
-        stackspace.collide(collisions, collisionCB)
+        collisions.reset()  # this could use the length of the collisions list
+        collisionPairs = []
+        stackspace.collide((collisions, collisionPairs), collisionCB)
+
+        flatList = [geom for pair in collisionPairs for geom in pair]
 
         # Render!!
-        for geometry in geometries:
-            geometry.render()
+        for i, geometry in enumerate(geometries):
+            if i > 2:
+                if geometry.geom in flatList:
+                    geometry.render((1, 0, 0))
+                else:
+                    geometry.render()
             pass
 
         grid.render()
