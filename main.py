@@ -316,10 +316,9 @@ class Counter(object):
         self.count = 0
 
 
-def collisionCB((counter, pairs), geom1, geom2):
+def collisionCB(pairs, geom1, geom2):
     contacts = ode.collide(geom1, geom2)
     if contacts:
-        counter.increment()
         pairs.append([geom1, geom2])
 
 
@@ -501,16 +500,16 @@ def run():
     stackspace = ode.Space()
 
     # Need a toggle to allow moving away from a crash
-    stopMotors = True
-    autoRestart = True
+    stopMotors = False
+    autoRestart = False
 
     # Heartbeat bool - toggles each frame
     heartbeat = 0
 
     # Colors!!
-    colors = [(1, 0, 1),
+    colors = [(0, 1, 1),
               (1, 1, 0),
-              (0, 1, 1)]
+              (1, 0, 1)]
 
     # ------------------------------------------------------------------------------------------------------------------
     # Config happens here:
@@ -520,14 +519,18 @@ def run():
     #geometries.append(GeometryBox(world, space, (0, 1, 10), color=(1, 0, 0), size=(2.0, 2.0, 2.0)))
     #geometries.append(GeometryBox(world, space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
     #geometries.append(GeometryBox(world, space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
-    geometries.append(GeometryBox(world, stackspace,
-                            (10, 0.5, 10), color=colors[0], size=(22.0, 1.0, 22.0), origin=(10, 0, 10), oversize = 1))
-    geometries.append(GeometryBox(world, stackspace,
-                        (0, 1.6, 10), color=colors[1], size=(2.0, 1.0, 22.0), origin=(10, 0, 10), oversize = 1))
     geometries.append(
-        GeometryBox(world, stackspace, (0, 3.2, 0), color=colors[2], size=(2, 2, 2), origin=(10, 0, 10), oversize = 1))
+        GeometryBox(world, stackspace, (0, 3.2, 0), color=colors[0], size=(2, 2, 2), origin=(10, 0, 10), oversize=1))
+    geometries.append(GeometryBox(world, stackspace,
+                        (0, 1.6, 10), color=colors[1], size=(2.0, 1.0, 22.0), origin=(10, 0, 10), oversize=1))
+    geometries.append(GeometryBox(world, stackspace,
+                                  (10, 0.5, 10), color=colors[2], size=(22.0, 1.0, 22.0), origin=(10, 0, 10),
+                                  oversize=1))
     geometries.append(
-        GeometryBox(world, stackspace, (20, 3.2, 10), color=(1, 1, 1), size=(10, 2, 2), oversize = 1))
+        GeometryBox(world, stackspace, (20, 3.2, 10), color=(1, 1, 1), size=(10, 2, 2), oversize=1))
+
+    # List of pairs to ignore
+    ignore = [[0, 1], [0, 2], [1, 2]]
 
     # Generate move functions
     moves = []
@@ -545,6 +548,8 @@ def run():
     #moves.append(move)
 
     def move(geometry, monitors):
+        geometry.setRotation(angles=(0, 0, 0))
+        geometry.setPosition(x=monitors[0].value, z=monitors[1].value)
         geometry.setRotation(ty=radians(monitors[2].value))
     moves.append(move)
 
@@ -555,8 +560,6 @@ def run():
     moves.append(move)
 
     def move(geometry, monitors):
-        geometry.setRotation(angles=(0, 0, 0))
-        geometry.setPosition(x=monitors[0].value, z=monitors[1].value)
         geometry.setRotation(ty=radians(monitors[2].value))
     moves.append(move)
 
@@ -606,7 +609,7 @@ def run():
                 return
 
                 # Clear the screen, and z-buffer
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
         time_passed = clock.tick()
         time_passed_seconds = time_passed / 1000.
@@ -688,24 +691,27 @@ def run():
             move(geometry, monitors)
 
         # Check for collisions
-        collisions.reset()  # this could use the length of the collisions list
         collisionPairs = []
-        stackspace.collide((collisions, collisionPairs), collisionCB)
+        stackspace.collide(collisionPairs, collisionCB)
 
-        flatList = [geom for pair in collisionPairs for geom in pair]
+        collisions = [geometry.geom in [geom for pair in collisionPairs for geom in pair] for geometry in geometries]
 
         # Render!!
-        for i, geometry in enumerate(geometries):
-            if geometry.geom in flatList:
-                geometry.render((1, 0, 0))
+        for geometry, collided in zip(geometries, collisions):
+            if collided:
+                geometry.render((0.8, 0, 0))
             else:
                 geometry.render()
             pass
 
         grid.render()
 
+        # Seek the correct limit values
+        softlimits = seekLimits(stackspace, geometries, moves, monitors, hardlimits, fine=None)
+        setLimits(softlimits, pvs)
+
         # Display the status icon
-        if collisions.count:
+        if any(collisions):
             if stopMotors:
                 square(10, 10)
                 for pv in pvs:
@@ -728,24 +734,13 @@ def run():
         else:
             text(70, 35, "Auto-restart off")
 
-        # Seek the correct limit values
-        softlimits = seekLimits(stackspace, geometries, moves, monitors, hardlimits, fine=None)
-        setLimits(softlimits, pvs)
-
         # Print some helpful numbers:
         for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
             width = text(10, 70+(30*i), "%.2f" % monitor.value, colors[i])
-            width += text(20 + width, 70+(30*i), "%.2f" % limit[0], colors[i])
-            width += text(30 + width, 70+(30*i), "%.2f" % limit[1], colors[i])
+            width += text(20 + max(width, 60), 70+(30*i), "%.2f" % limit[0], colors[i])
+            width += text(30 + max(width, 60*2), 70+(30*i), "%.2f" % limit[1], colors[i])
 
-
-        #text(10, 100, str(softlimits))
-        #print hardlimits, softlimits
-
-        #text(10, 70, str([monitor.value for monitor in monitors]))
-
-        #if heartbeat > 5:
-        #    square(10, 565, 25, 25, (0.2, 0.2, 0.2))
+        # Show a heartbeat bar
         square(10, 565, 5*heartbeat, 25, (0.2, 0.2, 0.2))
         if heartbeat > 10:
             heartbeat = 0
