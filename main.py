@@ -15,11 +15,11 @@ from gameobjects.vector3 import *
 import ode
 
 import numpy as np
+import copy
 
 from genie_python.genie_startup import *
 
 from monitor import Monitor, MonitorQueue
-from simulate import SimulatedMotor
 
 
 def resize(width, height):
@@ -176,11 +176,11 @@ class GeometryBox(object):
 
     def setPosition(self, x=None, y=None, z=None):
         pos = list(self.body.getPosition())
-        if x:
+        if x is not None:
             pos[0] = x
-        if y:
+        if y is not None:
             pos[1] = y
-        if z:
+        if z is not None:
             pos[2] = z
         self.body.setPosition(pos)
 
@@ -316,11 +316,115 @@ class Counter(object):
         self.count = 0
 
 
-def collisionCB((counter, list), geom1, geom2):
+def collisionCB((counter, pairs), geom1, geom2):
     contacts = ode.collide(geom1, geom2)
     if contacts:
         counter.increment()
-        list.append([geom1, geom2])
+        pairs.append([geom1, geom2])
+
+
+def limitCB(counter, geom1, geom2):
+    contacts = ode.collide(geom1, geom2)
+    if contacts:
+        counter.increment()
+
+
+class DummyMonitor(object):
+    def __init__(self, value):
+        self.setValue(value)
+
+    def setValue(self, value):
+        self.value = value
+
+
+def seekLimits(space, orggeometries, moves, monitors, limits, coarse=1.0, fine=0.01):
+    counter = Counter()
+    softlimits = []
+
+    geometries = orggeometries[:]
+
+    for i in range(len(limits)):
+        softlimits.append(list(limits[i][:]))
+        dummies = [DummyMonitor(monitor.value) for monitor in monitors]
+
+        min = np.min(limits[i])
+        max = np.max(limits[i])
+
+        # Do coarse seek
+        # Seek backwards to the closest crash/limit
+        if min < dummies[i].value:
+            for value in np.arange(dummies[i].value - coarse, min, -coarse):
+                dummies[i].setValue(value)
+                # Move to the new position
+                for move, geometry in zip(moves, geometries):
+                    move(geometry, dummies)
+                # Check for collisions
+                counter.reset()
+                space.collide(counter, limitCB)
+                if counter.count > 0:
+                    softlimits[i][0] = value
+                    break
+
+        # Seek forwards to the closest crash/limit
+        if max > dummies[i].value:
+            for value in np.arange(dummies[i].value + coarse, max, coarse):
+                dummies[i].setValue(value)
+                # Move to the new position
+                for move, geometry in zip(moves, geometries):
+                    move(geometry, dummies)
+                # Check for collisions
+                counter.reset()
+                space.collide(counter, limitCB)
+                if counter.count > 0:
+                    softlimits[i][1] = value
+                    break
+
+        # Restore positions
+        for move, geometry in zip(moves, geometries):
+            move(geometry, monitors)
+
+        if fine is not None:
+
+            # Do fine seek
+            # Seek backwards to the closest crash/limit
+            if min < dummies[i].value:
+                for value in np.arange(np.min(softlimits[i]) + coarse, min, -fine):
+                    dummies[i].setValue(value)
+                    # Move to the new position
+                    for move, geometry in zip(moves, geometries):
+                        move(geometry, dummies)
+                    # Check for collisions
+                    counter.reset()
+                    space.collide(counter, limitCB)
+                    if counter.count > 0:
+                        softlimits[i][0] = value
+                        break
+
+            # Seek forwards to the closest crash/limit
+            if max > dummies[i].value:
+                for value in np.arange(np.min(softlimits[i]) - coarse, max, fine):
+                    dummies[i].setValue(value)
+                    # Move to the new position
+                    for move, geometry in zip(moves, geometries):
+                        move(geometry, dummies)
+                    # Check for collisions
+                    counter.reset()
+                    space.collide(counter, limitCB)
+                    if counter.count > 0:
+                        softlimits[i][1] = value
+                        break
+
+            # Restore positions
+            for move, geometry in zip(moves, geometries):
+                move(geometry, monitors)
+
+    return softlimits
+
+
+def setLimits(limits, pvs):
+    for limit, pv in zip(limits, pvs):
+        set_pv(pv + '.LLM', np.min(limit))
+        set_pv(pv + '.HLM', np.max(limit))
 
 
 def square(x, y, w=50, h=50, color=(1, 0, 0)):
@@ -370,6 +474,8 @@ def text(x, y, string, color=(0.4, 0.4, 0.4), size=32):
     glPopMatrix()
     glMatrixMode(GL_MODELVIEW)
 
+    return textSurface.get_width()
+
 
 def run():
     pygame.init()
@@ -379,6 +485,8 @@ def run():
 
     resize(*SCREEN_SIZE)
     init()
+
+    print(SCREEN_SIZE)
 
     clock = pygame.time.Clock()
 
@@ -396,37 +504,45 @@ def run():
     stopMotors = True
     autoRestart = True
 
+    # Heartbeat bool - toggles each frame
+    heartbeat = 0
+
+    # Colors!!
+    colors = [(1, 0, 1),
+              (1, 1, 0),
+              (0, 1, 1)]
+
     # ------------------------------------------------------------------------------------------------------------------
     # Config happens here:
 
     # Define the geometry of the system
     geometries = []
-    geometries.append(GeometryBox(world, space, (0, 1, 10), color=(1, 0, 0), size=(2.0, 2.0, 2.0)))
-    geometries.append(GeometryBox(world, space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
-    geometries.append(GeometryBox(world, space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
+    #geometries.append(GeometryBox(world, space, (0, 1, 10), color=(1, 0, 0), size=(2.0, 2.0, 2.0)))
+    #geometries.append(GeometryBox(world, space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
+    #geometries.append(GeometryBox(world, space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
     geometries.append(GeometryBox(world, stackspace,
-                            (10, 0.5, 10), color=(1, 0, 1), size=(22.0, 1.0, 22.0), origin=(10, 0, 10), oversize = 1))
+                            (10, 0.5, 10), color=colors[0], size=(22.0, 1.0, 22.0), origin=(10, 0, 10), oversize = 1))
     geometries.append(GeometryBox(world, stackspace,
-                        (0, 1.6, 10), color=(1, 1, 0), size=(2.0, 1.0, 22.0), origin=(10, 0, 10), oversize = 1))
+                        (0, 1.6, 10), color=colors[1], size=(2.0, 1.0, 22.0), origin=(10, 0, 10), oversize = 1))
     geometries.append(
-        GeometryBox(world, stackspace, (0, 3.2, 0), color=(0, 1, 1), size=(2, 2, 2), origin=(10, 0, 10), oversize = 1))
+        GeometryBox(world, stackspace, (0, 3.2, 0), color=colors[2], size=(2, 2, 2), origin=(10, 0, 10), oversize = 1))
     geometries.append(
         GeometryBox(world, stackspace, (20, 3.2, 10), color=(1, 1, 1), size=(10, 2, 2), oversize = 1))
 
     # Generate move functions
     moves = []
 
-    def move(geometry, monitors):
-        geometry.setPosition(x=monitors[0].value)
-    moves.append(move)
+    #def move(geometry, monitors):
+    #    geometry.setPosition(x=monitors[0].value)
+    #moves.append(move)
 
-    def move(geometry, monitors):
-        geometry.setPosition(z=monitors[1].value)
-    moves.append(move)
+    #def move(geometry, monitors):
+    #    geometry.setPosition(z=monitors[1].value)
+    #moves.append(move)
 
-    def move(geometry, monitors):
-        geometry.setRotation(ty=radians(monitors[2].value))
-    moves.append(move)
+    #def move(geometry, monitors):
+    #    geometry.setRotation(ty=radians(monitors[2].value))
+    #moves.append(move)
 
     def move(geometry, monitors):
         geometry.setRotation(ty=radians(monitors[2].value))
@@ -445,13 +561,17 @@ def run():
     moves.append(move)
 
     # Attach monitors to readbacks
-    #pvs = ["TE:NDW1720:MOT:MTR0201", "TE:NDW1720:MOT:MTR0202", "TE:NDW1720:MOT:MTR0203"]
-    pvs = ["TE:NDW1720:MOT:MTR0101", "TE:NDW1720:MOT:MTR0102", "TE:NDW1720:MOT:MTR0103"]
+    pvs = ["TE:NDW1720:MOT:MTR0201", "TE:NDW1720:MOT:MTR0202", "TE:NDW1720:MOT:MTR0203"]
+    #pvs = ["TE:NDW1720:MOT:MTR0101", "TE:NDW1720:MOT:MTR0102", "TE:NDW1720:MOT:MTR0103"]
     monitors = []
     for pv in pvs:
         monitor = Monitor(pv + ".RBV")
         monitor.start()
         monitors.append(monitor)
+
+    hardlimits = [[0.0, 20.0],
+                  [0.0, 20.0],
+                  [0.0, 360.0]]
 
     # ------------------------------------------------------------------------------------------------------------------
 
@@ -576,11 +696,10 @@ def run():
 
         # Render!!
         for i, geometry in enumerate(geometries):
-            if i > 2:
-                if geometry.geom in flatList:
-                    geometry.render((1, 0, 0))
-                else:
-                    geometry.render()
+            if geometry.geom in flatList:
+                geometry.render((1, 0, 0))
+            else:
+                geometry.render()
             pass
 
         grid.render()
@@ -609,11 +728,33 @@ def run():
         else:
             text(70, 35, "Auto-restart off")
 
-        #text(70, 10, "Hi")
+        # Seek the correct limit values
+        softlimits = seekLimits(stackspace, geometries, moves, monitors, hardlimits, fine=None)
+        setLimits(softlimits, pvs)
+
+        # Print some helpful numbers:
+        for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
+            width = text(10, 70+(30*i), "%.2f" % monitor.value, colors[i])
+            width += text(20 + width, 70+(30*i), "%.2f" % limit[0], colors[i])
+            width += text(30 + width, 70+(30*i), "%.2f" % limit[1], colors[i])
+
+
+        #text(10, 100, str(softlimits))
+        #print hardlimits, softlimits
+
+        #text(10, 70, str([monitor.value for monitor in monitors]))
+
+        #if heartbeat > 5:
+        #    square(10, 565, 25, 25, (0.2, 0.2, 0.2))
+        square(10, 565, 5*heartbeat, 25, (0.2, 0.2, 0.2))
+        if heartbeat > 10:
+            heartbeat = 0
+        else:
+            heartbeat += 1
 
         # Show the screen
         pygame.display.flip()
 
-        pygame.time.wait(10)
+        #pygame.time.wait(10)
 
 run()
