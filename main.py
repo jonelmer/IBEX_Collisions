@@ -336,11 +336,14 @@ class DummyMonitor(object):
         self.value = value
 
 
-def seekLimits(space, orggeometries, moves, monitors, limits, coarse=1.0, fine=0.01):
+def seekLimits(space, geometries, moves, monitors, limits, coarse=1.0, fine=0.01):
     counter = Counter()
     softlimits = []
 
-    geometries = orggeometries[:]
+    dofineseek = True
+    if fine is None:
+        dofineseek = False
+        fine = 0.01
 
     for i in range(len(limits)):
         softlimits.append(list(limits[i][:]))
@@ -352,7 +355,8 @@ def seekLimits(space, orggeometries, moves, monitors, limits, coarse=1.0, fine=0
         # Do coarse seek
         # Seek backwards to the closest crash/limit
         if min < dummies[i].value:
-            for value in np.arange(dummies[i].value - coarse, min, -coarse):
+            sequence = np.arange(dummies[i].value-coarse, min, -coarse)
+            for value in sequence:
                 dummies[i].setValue(value)
                 # Move to the new position
                 for move, geometry in zip(moves, geometries):
@@ -361,12 +365,27 @@ def seekLimits(space, orggeometries, moves, monitors, limits, coarse=1.0, fine=0
                 counter.reset()
                 space.collide(counter, limitCB)
                 if counter.count > 0:
+                    if dofineseek:
+                        sequence = np.arange(value, value + coarse, fine)
+                        for value in sequence:
+                            dummies[i].setValue(value)
+                            # Move to the new position
+                            for move, geometry in zip(moves, geometries):
+                                move(geometry, dummies)
+                            # Check for collisions
+                            counter.reset()
+                            space.collide(counter, limitCB)
+                            if counter.count == 0:
+                                break
                     softlimits[i][0] = value
                     break
+        else:
+            softlimits[i][0] = dummies[i].value
 
         # Seek forwards to the closest crash/limit
         if max > dummies[i].value:
-            for value in np.arange(dummies[i].value + coarse, max, coarse):
+            sequence = np.arange(dummies[i].value+coarse, max, coarse)
+            for value in sequence:
                 dummies[i].setValue(value)
                 # Move to the new position
                 for move, geometry in zip(moves, geometries):
@@ -375,49 +394,42 @@ def seekLimits(space, orggeometries, moves, monitors, limits, coarse=1.0, fine=0
                 counter.reset()
                 space.collide(counter, limitCB)
                 if counter.count > 0:
+                    if dofineseek:
+                        sequence = np.arange(value, value - coarse, -fine)
+                        for value in sequence:
+                            dummies[i].setValue(value)
+                            # Move to the new position
+                            for move, geometry in zip(moves, geometries):
+                                move(geometry, dummies)
+                            # Check for collisions
+                            counter.reset()
+                            space.collide(counter, limitCB)
+                            if counter.count == 0:
+                                break
                     softlimits[i][1] = value
                     break
+        else:
+            softlimits[i][1] = dummies[i].value
 
         # Restore positions
         for move, geometry in zip(moves, geometries):
             move(geometry, monitors)
 
-        if fine is not None:
-
-            # Do fine seek
-            # Seek backwards to the closest crash/limit
-            if min < dummies[i].value:
-                for value in np.arange(np.min(softlimits[i]) + coarse, min, -fine):
-                    dummies[i].setValue(value)
-                    # Move to the new position
-                    for move, geometry in zip(moves, geometries):
-                        move(geometry, dummies)
-                    # Check for collisions
-                    counter.reset()
-                    space.collide(counter, limitCB)
-                    if counter.count > 0:
-                        softlimits[i][0] = value
-                        break
-
-            # Seek forwards to the closest crash/limit
-            if max > dummies[i].value:
-                for value in np.arange(np.min(softlimits[i]) - coarse, max, fine):
-                    dummies[i].setValue(value)
-                    # Move to the new position
-                    for move, geometry in zip(moves, geometries):
-                        move(geometry, dummies)
-                    # Check for collisions
-                    counter.reset()
-                    space.collide(counter, limitCB)
-                    if counter.count > 0:
-                        softlimits[i][1] = value
-                        break
-
-            # Restore positions
-            for move, geometry in zip(moves, geometries):
-                move(geometry, monitors)
-
     return softlimits
+
+
+# This ignores geometries we have said we don't care about
+def collide(geometries, ignore):
+    collisions = [False] * len(geometries)
+    for i, geom1 in enumerate(geometries):
+        for j, geom2 in enumerate(geometries[i:]):
+            for ign in ignore:
+                if ign is not [i, i + j] or ign is not [i + j, i]:
+                    contacts = ode.collide(geom1.geom, geom2.geom)
+                    if contacts:
+                        collisions[i] = True
+                        collisions[i + j] = True
+    return collisions
 
 
 def setLimits(limits, pvs):
@@ -604,8 +616,10 @@ def run():
 
         for event in pygame.event.get():
             if event.type == QUIT:
+                setLimits(hardlimits, pvs)
                 return
             if event.type == KEYUP and event.key == K_ESCAPE:
+                setLimits(hardlimits, pvs)
                 return
 
                 # Clear the screen, and z-buffer
@@ -657,6 +671,8 @@ def run():
             autoRestart = False
         if pressed[K_SPACE]:
             camera_matrix = initialise_camera()
+        if pressed[K_RETURN]:
+            setLimits(hardlimits, pvs)
 
         # Calculate rotation matrix and multiply by camera matrix
         rotation = rotation_direction * rotation_speed * time_passed_seconds
@@ -694,7 +710,11 @@ def run():
         collisionPairs = []
         stackspace.collide(collisionPairs, collisionCB)
 
-        collisions = [geometry.geom in [geom for pair in collisionPairs for geom in pair] for geometry in geometries]
+        #collisions = [geometry.geom in [geom for pair in collisionPairs for geom in pair] for geometry in geometries]
+
+        collisions = collide(geometries, ignore)
+
+        #print collisions
 
         # Render!!
         for geometry, collided in zip(geometries, collisions):
@@ -707,8 +727,8 @@ def run():
         grid.render()
 
         # Seek the correct limit values
-        softlimits = seekLimits(stackspace, geometries, moves, monitors, hardlimits, fine=None)
-        setLimits(softlimits, pvs)
+        softlimits = seekLimits(stackspace, geometries, moves, monitors, hardlimits, fine=0.01)
+        #setLimits(softlimits, pvs)
 
         # Display the status icon
         if any(collisions):
