@@ -336,7 +336,7 @@ class DummyMonitor(object):
         self.value = value
 
 
-def seekLimits(space, geometries, moves, monitors, limits, coarse=1.0, fine=0.01):
+def seekLimits(space, geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.01):
     counter = Counter()
     softlimits = []
 
@@ -362,9 +362,11 @@ def seekLimits(space, geometries, moves, monitors, limits, coarse=1.0, fine=0.01
                 for move, geometry in zip(moves, geometries):
                     move(geometry, dummies)
                 # Check for collisions
-                counter.reset()
-                space.collide(counter, limitCB)
-                if counter.count > 0:
+                #counter.reset()
+                #space.collide(counter, limitCB)
+                #if counter.count > 0:
+                collisions = collide(geometries, ignore)
+                if any(collisions):
                     if dofineseek:
                         sequence = np.arange(value, value + coarse, fine)
                         for value in sequence:
@@ -373,9 +375,11 @@ def seekLimits(space, geometries, moves, monitors, limits, coarse=1.0, fine=0.01
                             for move, geometry in zip(moves, geometries):
                                 move(geometry, dummies)
                             # Check for collisions
-                            counter.reset()
-                            space.collide(counter, limitCB)
-                            if counter.count == 0:
+                            #counter.reset()
+                            #space.collide(counter, limitCB)
+                            #if counter.count == 0:
+                            collisions = collide(geometries, ignore)
+                            if not any(collisions):
                                 break
                     softlimits[i][0] = value
                     break
@@ -391,9 +395,11 @@ def seekLimits(space, geometries, moves, monitors, limits, coarse=1.0, fine=0.01
                 for move, geometry in zip(moves, geometries):
                     move(geometry, dummies)
                 # Check for collisions
-                counter.reset()
-                space.collide(counter, limitCB)
-                if counter.count > 0:
+                #counter.reset()
+                #space.collide(counter, limitCB)
+                #if counter.count > 0:
+                collisions = collide(geometries, ignore)
+                if any(collisions):
                     if dofineseek:
                         sequence = np.arange(value, value - coarse, -fine)
                         for value in sequence:
@@ -402,9 +408,11 @@ def seekLimits(space, geometries, moves, monitors, limits, coarse=1.0, fine=0.01
                             for move, geometry in zip(moves, geometries):
                                 move(geometry, dummies)
                             # Check for collisions
-                            counter.reset()
-                            space.collide(counter, limitCB)
-                            if counter.count == 0:
+                            #counter.reset()
+                            #space.collide(counter, limitCB)
+                            #if counter.count == 0:
+                            collisions = collide(geometries, ignore)
+                            if not any(collisions):
                                 break
                     softlimits[i][1] = value
                     break
@@ -423,12 +431,12 @@ def collide(geometries, ignore):
     collisions = [False] * len(geometries)
     for i, geom1 in enumerate(geometries):
         for j, geom2 in enumerate(geometries[i:]):
-            for ign in ignore:
-                if ign is not [i, i + j] or ign is not [i + j, i]:
-                    contacts = ode.collide(geom1.geom, geom2.geom)
-                    if contacts:
-                        collisions[i] = True
-                        collisions[i + j] = True
+            if not ([i, i + j] in ignore or [i + j, i] in ignore):
+                contacts = ode.collide(geom1.geom, geom2.geom)
+                if contacts:
+                    collisions[i] = True
+                    collisions[i + j] = True
+    #print collisions
     return collisions
 
 
@@ -532,14 +540,14 @@ def run():
     #geometries.append(GeometryBox(world, space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
     #geometries.append(GeometryBox(world, space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
     geometries.append(
-        GeometryBox(world, stackspace, (0, 3.2, 0), color=colors[0], size=(2, 2, 2), origin=(10, 0, 10), oversize=1))
+        GeometryBox(world, stackspace, (0, 3, 0), color=colors[0], size=(2, 2, 2), origin=(10, 0, 10), oversize=1))
     geometries.append(GeometryBox(world, stackspace,
-                        (0, 1.6, 10), color=colors[1], size=(2.0, 1.0, 22.0), origin=(10, 0, 10), oversize=1))
+                        (0, 1.5, 10), color=colors[1], size=(2.0, 1.0, 22.0), origin=(10, 0, 10), oversize=1))
     geometries.append(GeometryBox(world, stackspace,
                                   (10, 0.5, 10), color=colors[2], size=(22.0, 1.0, 22.0), origin=(10, 0, 10),
                                   oversize=1))
     geometries.append(
-        GeometryBox(world, stackspace, (20, 3.2, 10), color=(1, 1, 1), size=(10, 2, 2), oversize=1))
+        GeometryBox(world, stackspace, (20, 3.1, 10), color=(1, 1, 1), size=(10, 2, 2), oversize=1))
 
     # List of pairs to ignore
     ignore = [[0, 1], [0, 2], [1, 2]]
@@ -707,8 +715,8 @@ def run():
             move(geometry, monitors)
 
         # Check for collisions
-        collisionPairs = []
-        stackspace.collide(collisionPairs, collisionCB)
+        #collisionPairs = []
+        #stackspace.collide(collisionPairs, collisionCB)
 
         #collisions = [geometry.geom in [geom for pair in collisionPairs for geom in pair] for geometry in geometries]
 
@@ -727,8 +735,8 @@ def run():
         grid.render()
 
         # Seek the correct limit values
-        softlimits = seekLimits(stackspace, geometries, moves, monitors, hardlimits, fine=0.01)
-        #setLimits(softlimits, pvs)
+        softlimits = seekLimits(stackspace, geometries, ignore, moves, monitors, hardlimits, fine=0.01)
+        setLimits(softlimits, pvs)
 
         # Display the status icon
         if any(collisions):
@@ -757,8 +765,8 @@ def run():
         # Print some helpful numbers:
         for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
             width = text(10, 70+(30*i), "%.2f" % monitor.value, colors[i])
-            width += text(20 + max(width, 60), 70+(30*i), "%.2f" % limit[0], colors[i])
-            width += text(30 + max(width, 60*2), 70+(30*i), "%.2f" % limit[1], colors[i])
+            width += text(20 + max(width, 70), 70+(30*i), "%.2f" % limit[0], colors[i])
+            width += text(30 + max(width, 70*2), 70+(30*i), "%.2f" % limit[1], colors[i])
 
         # Show a heartbeat bar
         square(10, 565, 5*heartbeat, 25, (0.2, 0.2, 0.2))
