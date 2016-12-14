@@ -31,10 +31,20 @@ def resize(width, height):
 def rotation_matrix(rx=0, ry=0, rz=0, angle=None):
     if angle:
         rz, ry, rz = angle
-    Rx = np.array([[1, 0, 0], [0, cos(rx), -sin(rx)], [0, sin(rx), cos(rx)]])
-    Ry = np.array([[cos(ry), 0, -sin(ry)], [0, 1, 0], [sin(ry), 0, cos(ry)]])
-    Rz = np.array([[cos(rz), -sin(rz), 0], [sin(rz), cos(rz), 0], [0, 0, 1]])
-    return np.dot(Rx, np.dot(Ry, Rz))
+    # Can check if we are only rotating about one axis, then only do that rotation?
+    #R = np.identity(3)
+    R = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+
+    if rx is not 0:
+        R = np.dot(np.array([[1, 0, 0], [0, cos(rx), -sin(rx)], [0, sin(rx), cos(rx)]]), R)
+
+    if ry is not 0:
+        R = np.dot(np.array([[cos(ry), 0, -sin(ry)], [0, 1, 0], [sin(ry), 0, cos(ry)]]), R)
+
+    if rz is not 0:
+        R = np.dot(np.array([[cos(rz), -sin(rz), 0], [sin(rz), cos(rz), 0], [0, 0, 1]]), R)
+
+    return R
 
 
 def init():
@@ -176,6 +186,11 @@ class GeometryBox(object):
     def setRotation(self, tx=0, ty=0, tz=0, origin=None, angles=None):
         if angles:
             tx, ty, tx = angles
+
+        # Don't need to calculate if the angles haven't changed!! Saves a lot of effort!!
+        if (tx, ty, tz) is self.angles:
+            return
+
         rx, ry, rz = [r - a for a, r in zip(self.angles, (tx, ty, tz))]
 
         if origin is None: origin = self.origin
@@ -321,8 +336,15 @@ class DummyMonitor(object):
         self.value = value
 
 
+def sequencer(start, stop, step):
+    i = 0
+    count = (stop-start)/step
+    while i <= count:
+        yield start + step * i
+        i += 1
+
+
 def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.01):
-    counter = Counter()
     softlimits = []
 
     dofineseek = True
@@ -341,28 +363,24 @@ def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.0
         # Seek backwards to the closest crash/limit
         if min < dummies[i].value:
             sequence = np.arange(dummies[i].value - coarse, min, -coarse)
+            #sequence = sequencer(dummies[i].value - coarse, min, -coarse)
             for value in sequence:
                 dummies[i].setValue(value)
                 # Move to the new position
                 for move, geometry in zip(moves, geometries):
                     move(geometry, dummies)
                 # Check for collisions
-                # counter.reset()
-                # space.collide(counter, limitCB)
-                # if counter.count > 0:
                 collisions = collide(geometries, ignore)
                 if any(collisions):
                     if dofineseek:
                         sequence = np.arange(value, value + coarse, fine)
+                        #sequence = sequencer(value, value + coarse, fine)
                         for value in sequence:
                             dummies[i].setValue(value)
                             # Move to the new position
                             for move, geometry in zip(moves, geometries):
                                 move(geometry, dummies)
                             # Check for collisions
-                            # counter.reset()
-                            # space.collide(counter, limitCB)
-                            # if counter.count == 0:
                             collisions = collide(geometries, ignore)
                             if not any(collisions):
                                 break
@@ -374,28 +392,24 @@ def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.0
         # Seek forwards to the closest crash/limit
         if max > dummies[i].value:
             sequence = np.arange(dummies[i].value + coarse, max, coarse)
+            #sequence = sequencer(dummies[i].value + coarse, max, coarse)
             for value in sequence:
                 dummies[i].setValue(value)
                 # Move to the new position
                 for move, geometry in zip(moves, geometries):
                     move(geometry, dummies)
                 # Check for collisions
-                # counter.reset()
-                # space.collide(counter, limitCB)
-                # if counter.count > 0:
                 collisions = collide(geometries, ignore)
                 if any(collisions):
                     if dofineseek:
                         sequence = np.arange(value, value - coarse, -fine)
+                        #sequence = sequencer(value, value - coarse, -fine)
                         for value in sequence:
                             dummies[i].setValue(value)
                             # Move to the new position
                             for move, geometry in zip(moves, geometries):
                                 move(geometry, dummies)
                             # Check for collisions
-                            # counter.reset()
-                            # space.collide(counter, limitCB)
-                            # if counter.count == 0:
                             collisions = collide(geometries, ignore)
                             if not any(collisions):
                                 break
@@ -454,11 +468,11 @@ def square(x, y, w=50, h=50, color=(1, 0, 0)):
     glMatrixMode(GL_MODELVIEW)
 
 
-def text(x, y, string, color=(0.4, 0.4, 0.4), align="left", size=18):
+def text(font, x, y, string, color=(0.4, 0.4, 0.4), align="left"):
     color = [c * 255 for c in color]
     color.append(255)
 
-    y = y + size
+    y += 18
 
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
@@ -470,7 +484,6 @@ def text(x, y, string, color=(0.4, 0.4, 0.4), align="left", size=18):
     glClear(GL_DEPTH_BUFFER_BIT)
     glColor(color)
 
-    font = pygame.font.SysFont("consolas", size)
     textSurface = font.render(string, True, color, (0, 0, 0, 255))
     textData = pygame.image.tostring(textSurface, "RGBA", True)
 
@@ -491,6 +504,8 @@ def text(x, y, string, color=(0.4, 0.4, 0.4), align="left", size=18):
 def run():
     pygame.init()
     screen = pygame.display.set_mode(SCREEN_SIZE, HWSURFACE | OPENGL | DOUBLEBUF)
+
+    font = pygame.font.SysFont("consolas", 18)
 
     pygame.display.set_caption("Collision Monitor")
 
@@ -523,14 +538,10 @@ def run():
     # Config happens here:
 
     # Define the geometry of the system
-    geometries = []
-    # geometries.append(GeometryBox(space, (0, 1, 10), color=(1, 0, 0), size=(2.0, 2.0, 2.0)))
-    # geometries.append(GeometryBox(space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
-    # geometries.append(GeometryBox(space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
-    geometries.append(GeometryBox(space, (0, 3, 0), color=colors[0], size=(2, 2, 2), origin=(10, 0, 10)))
-    geometries.append(GeometryBox(space, (0, 1.5, 10), color=colors[1], size=(2.0, 1.0, 22.0), origin=(10, 0, 10)))
-    geometries.append(GeometryBox(space, (10, 0.5, 10), color=colors[2], size=(22.0, 1.0, 22.0), origin=(10, 0, 10)))
-    geometries.append(GeometryBox(space, (20, 3.1, 10), color=(1, 1, 1), size=(10, 2, 2)))
+    geometries = [GeometryBox(space, (0, 3, 0), color=colors[0], size=(2, 2, 2), origin=(10, 0, 10)),
+                  GeometryBox(space, (0, 1.5, 10), color=colors[1], size=(2.0, 1.0, 22.0), origin=(10, 0, 10)),
+                  GeometryBox(space, (10, 0.5, 10), color=colors[2], size=(22.0, 1.0, 22.0), origin=(10, 0, 10)),
+                  GeometryBox(space, (20, 3, 10), color=(1, 1, 1), size=(10, 1.9, 1.9))]
 
     # List of pairs to ignore
     ignore = [[0, 1], [0, 2], [1, 2]]
@@ -538,28 +549,16 @@ def run():
     # Generate move functions
     moves = []
 
-    # def move(geometry, monitors):
-    #    geometry.setPosition(x=monitors[0].value)
-    # moves.append(move)
-
-    # def move(geometry, monitors):
-    #    geometry.setPosition(z=monitors[1].value)
-    # moves.append(move)
-
-    # def move(geometry, monitors):
-    #    geometry.setRotation(ty=radians(monitors[2].value))
-    # moves.append(move)
-
     def move(geometry, monitors):
         geometry.setRotation(angles=(0, 0, 0))
-        geometry.setPosition(x=monitors[0].value, z=monitors[1].value)
+        geometry.setPosition(x=monitors[1].value, z=monitors[0].value)
         geometry.setRotation(ty=radians(monitors[2].value))
 
     moves.append(move)
 
     def move(geometry, monitors):
         geometry.setRotation(angles=(0, 0, 0))
-        geometry.setPosition(x=monitors[0].value)
+        geometry.setPosition(x=monitors[1].value)
         geometry.setRotation(ty=radians(monitors[2].value))
 
     moves.append(move)
@@ -708,12 +707,12 @@ def run():
                 geometry.render((0.8, 0, 0))
             else:
                 geometry.render()
-            pass
 
         grid.render()
 
         # Seek the correct limit values
-        softlimits = seekLimits(geometries, ignore, moves, monitors, hardlimits, fine=0.01)
+        #softlimits = hardlimits
+        softlimits = seekLimits(geometries, ignore, moves, monitors, hardlimits, coarse=1.0, fine=0.1)
         setLimits(softlimits, pvs)
 
         # Display the status icon
@@ -722,41 +721,45 @@ def run():
                 square(10, 10)
                 for pv in pvs:
                     set_pv(pv + ".STOP", 1)
-                text(70, 10, "Collision detected!")
+                text(font, 70, 10, "Collision detected!")
             else:
                 square(10, 10, color=(1, 0.5, 0))
-                text(70, 10, "Collision ignored!")
+                text(font, 70, 10, "Collision ignored!")
         else:
             if stopMotors:
                 square(10, 10, color=(0, 1, 0))
-                text(70, 10, "Detecting collisions")
+                text(font, 70, 10, "Detecting collisions")
             else:
                 square(10, 10, color=(1, 1, 0))
                 stopMotors = autoRestart
-                text(70, 10, "Ignoring collisions")
+                text(font, 70, 10, "Ignoring collisions")
 
         if autoRestart:
-            text(70, 35, "Auto-restart on")
+            text(font, 70, 35, "Auto-restart on")
         else:
-            text(70, 35, "Auto-restart off")
+            text(font, 70, 35, "Auto-restart off")
 
         # Print some helpful numbers:
         for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
-            text(80 * 1, 70 + (30 * i), "%.2f" % monitor.value, colors[i], align="right")
-            text(80 * 2, 70 + (30 * i), "%.2f" % limit[0], colors[i], align="right")
-            text(80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i], align="right")
+            text(font, 80 * 1, 70 + (30 * i), "%.2f" % monitor.value, colors[i], align="right")
+            text(font, 80 * 2, 70 + (30 * i), "%.2f" % limit[0], colors[i], align="right")
+            text(font, 80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i], align="right")
+
+        text(font, 790, 575, "%.0f" % time_passed, align="right")
 
         # Show a heartbeat bar
-        square(10, 565, 5 * heartbeat, 25, (0.2, 0.2, 0.2))
-        if heartbeat > 10:
+        square(0, 595, 8 * heartbeat, 5, (0.3, 0.3, 0.3))
+        if heartbeat > 100:
             heartbeat = 0
+            # Need to return for sensible profiling
+            #return
         else:
             heartbeat += 1
 
         # Show the screen
         pygame.display.flip()
 
-        # pygame.time.wait(10)
+        #pygame.time.wait(10)
 
 
 run()
