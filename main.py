@@ -321,7 +321,7 @@ class DummyMonitor(object):
         self.value = value
 
 
-def seekLimits(space, geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.01):
+def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.01):
     counter = Counter()
     softlimits = []
 
@@ -412,6 +412,8 @@ def seekLimits(space, geometries, ignore, moves, monitors, limits, coarse=1.0, f
 
 
 # This ignores geometries we have said we don't care about
+# As there are only [(len(geometries)-1)!] combinations, and we don't care about some, there isn't much effort saved
+# by using spaces (which do a quicker estimate of collisions first)
 def collide(geometries, ignore):
     collisions = [False] * len(geometries)
     for i, geom1 in enumerate(geometries):
@@ -501,9 +503,6 @@ def run():
 
     glMaterial(GL_FRONT, GL_AMBIENT, (0.1, 0.1, 0.1, 1.0))
     glMaterial(GL_FRONT, GL_DIFFUSE, (1.0, 1.0, 1.0, 1.0))
-
-    # Create a world object
-    world = ode.World()
 
     # Create a space object for the live world
     space = ode.Space()
@@ -604,9 +603,6 @@ def run():
     movement_direction = Vector3()
     movement_speed = 5.0
 
-    collisions = Counter()
-    collisionPairs = []
-
     while True:
 
         for event in pygame.event.get():
@@ -702,11 +698,6 @@ def run():
             move(geometry, monitors)
 
         # Check for collisions
-        # collisionPairs = []
-        # space.collide(collisionPairs, collisionCB)
-
-        # collisions = [geometry.geom in [geom for pair in collisionPairs for geom in pair] for geometry in geometries]
-
         collisions = collide(geometries, ignore)
 
         # print collisions
@@ -722,7 +713,7 @@ def run():
         grid.render()
 
         # Seek the correct limit values
-        softlimits = seekLimits(space, geometries, ignore, moves, monitors, hardlimits, fine=0.01)
+        softlimits = seekLimits(geometries, ignore, moves, monitors, hardlimits, fine=0.01)
         setLimits(softlimits, pvs)
 
         # Display the status icon
