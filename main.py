@@ -1,7 +1,3 @@
-SCREEN_SIZE = (800, 600)
-
-from math import radians
-
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
@@ -15,11 +11,12 @@ from gameobjects.vector3 import *
 import ode
 
 import numpy as np
-import copy
 
 from genie_python.genie_startup import *
 
-from monitor import Monitor, MonitorQueue
+from monitor import Monitor
+
+SCREEN_SIZE = (800, 600)
 
 
 def resize(width, height):
@@ -32,7 +29,8 @@ def resize(width, height):
 
 
 def rotation_matrix(rx=0, ry=0, rz=0, angle=None):
-    if angle: rz, ry, rz = angle
+    if angle:
+        rz, ry, rz = angle
     Rx = np.array([[1, 0, 0], [0, cos(rx), -sin(rx)], [0, sin(rx), cos(rx)]])
     Ry = np.array([[cos(ry), 0, -sin(ry)], [0, 1, 0], [sin(ry), 0, cos(ry)]])
     Rz = np.array([[cos(rz), -sin(rz), 0], [sin(rz), cos(rz), 0], [0, 0, 1]])
@@ -53,26 +51,14 @@ def init():
 
 
 class GeometryBox(object):
-    def __init__(self, world, space, position, size=(1, 1, 1), color=(1, 1, 1), origin=(0, 0, 0), angle=(0, 0, 0), oversize=1):
-
-        # self.position = list(position)
-        self.color = color
-
-        # Create body
-        self.body = ode.Body(world)
-        # M = ode.Mass()
-        # M.setBox(density, lx, ly, lz)
-        # body.setMass(M)
-
+    def __init__(self, space, position, size=(1, 1, 1), color=(1, 1, 1), origin=(0, 0, 0), angle=(0, 0, 0), oversize=1):
         # Set parameters for drawing the body
-        self.body.shape = "box"
+        self.color = color
         self.size = size
-        # self.body.color = color
-        self.body.setPosition(position)
 
         # Create a box geom for collision detection
         self.geom = ode.GeomBox(space, lengths=[s * oversize for s in self.size])
-        self.geom.setBody(self.body)
+        self.geom.setPosition(position)
 
         self.origin = origin
         self.angles = angle
@@ -128,10 +114,10 @@ class GeometryBox(object):
         # Adjust all the vertices so that the cube is at self.position
         vertices = self.vertices
         vertices = [tuple(Vector3(v) * self.size) for v in vertices]
-        #vertices = [tuple(Vector3(v) + self.body.getPosition()) for v in vertices]
+        # vertices = [tuple(Vector3(v) + self.body.getPosition()) for v in vertices]
 
-        x, y, z = self.body.getPosition()
-        R = self.body.getRotation()
+        x, y, z = self.geom.getPosition()
+        R = self.geom.getRotation()
         rot = [[R[0], R[3], R[6], 0.],
                [R[1], R[4], R[7], 0.],
                [R[2], R[5], R[8], 0.],
@@ -162,11 +148,11 @@ class GeometryBox(object):
 
                 for i in vertex_index:
                     point = np.array([vertices[i][0], vertices[i][1], vertices[i][2], 1]).T
-                    #print rot
-                    #print np.dot(point, rot)
+                    # print rot
+                    # print np.dot(point, rot)
 
                     glVertex(np.dot(point, rot))
-                    #glVertex(vertices[i])
+                    # glVertex(vertices[i])
             glEnd()
 
     def move(self, x=0, y=0, z=0):
@@ -175,17 +161,17 @@ class GeometryBox(object):
         self.body.setPosition(pos)
 
     def setPosition(self, x=None, y=None, z=None):
-        pos = list(self.body.getPosition())
+        pos = list(self.geom.getPosition())
         if x is not None:
             pos[0] = x
         if y is not None:
             pos[1] = y
         if z is not None:
             pos[2] = z
-        self.body.setPosition(pos)
+        self.geom.setPosition(pos)
 
     def getPosition(self):
-        return self.body.getPosition()
+        return self.geom.getPosition()
 
     def setRotation(self, tx=0, ty=0, tz=0, origin=None, angles=None):
         if angles:
@@ -195,23 +181,23 @@ class GeometryBox(object):
         if origin is None: origin = self.origin
 
         # Calculate the new position
-        pos = list(self.body.getPosition())
+        pos = list(self.geom.getPosition())
         pos = [p - o for p, o in zip(pos, origin)]
         rot = rotation_matrix(rx, ry, rz)
         pos = np.dot(pos, rot)
         pos = [p + o for p, o in zip(pos, origin)]
-        self.body.setPosition(pos)
+        self.geom.setPosition(pos)
 
         # Update the rotation
         self.angles = (tx, ty, tz)
-        self.body.setRotation(rotation_matrix(angle=self.angles).T.reshape(9))
+        self.geom.setRotation(rotation_matrix(angle=self.angles).T.reshape(9))
 
     def getRotation(self):
         return self.angles
 
 
 class Grid(object):
-    def __init__(self, scale=5, size=(20, 0, 20), position = (0, 0, 0), color=(0.2, 0.2, 0.2)):
+    def __init__(self, scale=5, size=(20, 0, 20), position=(0, 0, 0), color=(0.2, 0.2, 0.2)):
 
         # self.position = list(position)
         self.color = color
@@ -304,7 +290,6 @@ class Map(object):
 
 
 class Counter(object):
-
     def __init__(self):
         self.count = 0
 
@@ -355,16 +340,16 @@ def seekLimits(space, geometries, ignore, moves, monitors, limits, coarse=1.0, f
         # Do coarse seek
         # Seek backwards to the closest crash/limit
         if min < dummies[i].value:
-            sequence = np.arange(dummies[i].value-coarse, min, -coarse)
+            sequence = np.arange(dummies[i].value - coarse, min, -coarse)
             for value in sequence:
                 dummies[i].setValue(value)
                 # Move to the new position
                 for move, geometry in zip(moves, geometries):
                     move(geometry, dummies)
                 # Check for collisions
-                #counter.reset()
-                #space.collide(counter, limitCB)
-                #if counter.count > 0:
+                # counter.reset()
+                # space.collide(counter, limitCB)
+                # if counter.count > 0:
                 collisions = collide(geometries, ignore)
                 if any(collisions):
                     if dofineseek:
@@ -375,9 +360,9 @@ def seekLimits(space, geometries, ignore, moves, monitors, limits, coarse=1.0, f
                             for move, geometry in zip(moves, geometries):
                                 move(geometry, dummies)
                             # Check for collisions
-                            #counter.reset()
-                            #space.collide(counter, limitCB)
-                            #if counter.count == 0:
+                            # counter.reset()
+                            # space.collide(counter, limitCB)
+                            # if counter.count == 0:
                             collisions = collide(geometries, ignore)
                             if not any(collisions):
                                 break
@@ -388,16 +373,16 @@ def seekLimits(space, geometries, ignore, moves, monitors, limits, coarse=1.0, f
 
         # Seek forwards to the closest crash/limit
         if max > dummies[i].value:
-            sequence = np.arange(dummies[i].value+coarse, max, coarse)
+            sequence = np.arange(dummies[i].value + coarse, max, coarse)
             for value in sequence:
                 dummies[i].setValue(value)
                 # Move to the new position
                 for move, geometry in zip(moves, geometries):
                     move(geometry, dummies)
                 # Check for collisions
-                #counter.reset()
-                #space.collide(counter, limitCB)
-                #if counter.count > 0:
+                # counter.reset()
+                # space.collide(counter, limitCB)
+                # if counter.count > 0:
                 collisions = collide(geometries, ignore)
                 if any(collisions):
                     if dofineseek:
@@ -408,9 +393,9 @@ def seekLimits(space, geometries, ignore, moves, monitors, limits, coarse=1.0, f
                             for move, geometry in zip(moves, geometries):
                                 move(geometry, dummies)
                             # Check for collisions
-                            #counter.reset()
-                            #space.collide(counter, limitCB)
-                            #if counter.count == 0:
+                            # counter.reset()
+                            # space.collide(counter, limitCB)
+                            # if counter.count == 0:
                             collisions = collide(geometries, ignore)
                             if not any(collisions):
                                 break
@@ -436,7 +421,7 @@ def collide(geometries, ignore):
                 if contacts:
                     collisions[i] = True
                     collisions[i + j] = True
-    #print collisions
+    # print collisions
     return collisions
 
 
@@ -467,11 +452,11 @@ def square(x, y, w=50, h=50, color=(1, 0, 0)):
     glMatrixMode(GL_MODELVIEW)
 
 
-def text(x, y, string, color=(0.4, 0.4, 0.4), size=32):
+def text(x, y, string, color=(0.4, 0.4, 0.4), align="left", size=18):
     color = [c * 255 for c in color]
     color.append(255)
 
-    y = y + size*0.7
+    y = y + size
 
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
@@ -483,17 +468,22 @@ def text(x, y, string, color=(0.4, 0.4, 0.4), size=32):
     glClear(GL_DEPTH_BUFFER_BIT)
     glColor(color)
 
-    font = pygame.font.Font(None, size)
+    font = pygame.font.SysFont("consolas", size)
     textSurface = font.render(string, True, color, (0, 0, 0, 255))
     textData = pygame.image.tostring(textSurface, "RGBA", True)
-    glRasterPos2d(x, y)
+
+    if align is "right":
+        glRasterPos2d(x - textSurface.get_width(), y)
+    else:
+        glRasterPos2d(x, y)
+
     glDrawPixels(textSurface.get_width(), textSurface.get_height(), GL_RGBA, GL_UNSIGNED_BYTE, textData)
 
     glMatrixMode(GL_PROJECTION)
     glPopMatrix()
     glMatrixMode(GL_MODELVIEW)
 
-    return textSurface.get_width()
+    return textSurface.get_width() + x
 
 
 def run():
@@ -517,7 +507,6 @@ def run():
 
     # Create a space object for the live world
     space = ode.Space()
-    stackspace = ode.Space()
 
     # Need a toggle to allow moving away from a crash
     stopMotors = False
@@ -536,18 +525,13 @@ def run():
 
     # Define the geometry of the system
     geometries = []
-    #geometries.append(GeometryBox(world, space, (0, 1, 10), color=(1, 0, 0), size=(2.0, 2.0, 2.0)))
-    #geometries.append(GeometryBox(world, space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
-    #geometries.append(GeometryBox(world, space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
-    geometries.append(
-        GeometryBox(world, stackspace, (0, 3, 0), color=colors[0], size=(2, 2, 2), origin=(10, 0, 10), oversize=1))
-    geometries.append(GeometryBox(world, stackspace,
-                        (0, 1.5, 10), color=colors[1], size=(2.0, 1.0, 22.0), origin=(10, 0, 10), oversize=1))
-    geometries.append(GeometryBox(world, stackspace,
-                                  (10, 0.5, 10), color=colors[2], size=(22.0, 1.0, 22.0), origin=(10, 0, 10),
-                                  oversize=1))
-    geometries.append(
-        GeometryBox(world, stackspace, (20, 3.1, 10), color=(1, 1, 1), size=(10, 2, 2), oversize=1))
+    # geometries.append(GeometryBox(space, (0, 1, 10), color=(1, 0, 0), size=(2.0, 2.0, 2.0)))
+    # geometries.append(GeometryBox(space, (10, 1, 0), color=(0, 1, 0), size=(2.0, 2.0, 2.0)))
+    # geometries.append(GeometryBox(space, (5, 1, 10), color=(0, 0, 1), size=(2.0, 2.0, 2.0), origin=(10, 0, 10)))
+    geometries.append(GeometryBox(space, (0, 3, 0), color=colors[0], size=(2, 2, 2), origin=(10, 0, 10)))
+    geometries.append(GeometryBox(space, (0, 1.5, 10), color=colors[1], size=(2.0, 1.0, 22.0), origin=(10, 0, 10)))
+    geometries.append(GeometryBox(space, (10, 0.5, 10), color=colors[2], size=(22.0, 1.0, 22.0), origin=(10, 0, 10)))
+    geometries.append(GeometryBox(space, (20, 3.1, 10), color=(1, 1, 1), size=(10, 2, 2)))
 
     # List of pairs to ignore
     ignore = [[0, 1], [0, 2], [1, 2]]
@@ -555,37 +539,40 @@ def run():
     # Generate move functions
     moves = []
 
-    #def move(geometry, monitors):
+    # def move(geometry, monitors):
     #    geometry.setPosition(x=monitors[0].value)
-    #moves.append(move)
+    # moves.append(move)
 
-    #def move(geometry, monitors):
+    # def move(geometry, monitors):
     #    geometry.setPosition(z=monitors[1].value)
-    #moves.append(move)
+    # moves.append(move)
 
-    #def move(geometry, monitors):
+    # def move(geometry, monitors):
     #    geometry.setRotation(ty=radians(monitors[2].value))
-    #moves.append(move)
+    # moves.append(move)
 
     def move(geometry, monitors):
         geometry.setRotation(angles=(0, 0, 0))
         geometry.setPosition(x=monitors[0].value, z=monitors[1].value)
         geometry.setRotation(ty=radians(monitors[2].value))
+
     moves.append(move)
 
     def move(geometry, monitors):
         geometry.setRotation(angles=(0, 0, 0))
         geometry.setPosition(x=monitors[0].value)
         geometry.setRotation(ty=radians(monitors[2].value))
+
     moves.append(move)
 
     def move(geometry, monitors):
         geometry.setRotation(ty=radians(monitors[2].value))
+
     moves.append(move)
 
     # Attach monitors to readbacks
     pvs = ["TE:NDW1720:MOT:MTR0201", "TE:NDW1720:MOT:MTR0202", "TE:NDW1720:MOT:MTR0203"]
-    #pvs = ["TE:NDW1720:MOT:MTR0101", "TE:NDW1720:MOT:MTR0102", "TE:NDW1720:MOT:MTR0103"]
+    # pvs = ["TE:NDW1720:MOT:MTR0101", "TE:NDW1720:MOT:MTR0102", "TE:NDW1720:MOT:MTR0103"]
     monitors = []
     for pv in pvs:
         monitor = Monitor(pv + ".RBV")
@@ -636,7 +623,7 @@ def run():
         time_passed = clock.tick()
         time_passed_seconds = time_passed / 1000.
 
-        #print(time_passed)
+        # print(time_passed)
 
         pressed = pygame.key.get_pressed()
 
@@ -715,14 +702,14 @@ def run():
             move(geometry, monitors)
 
         # Check for collisions
-        #collisionPairs = []
-        #stackspace.collide(collisionPairs, collisionCB)
+        # collisionPairs = []
+        # space.collide(collisionPairs, collisionCB)
 
-        #collisions = [geometry.geom in [geom for pair in collisionPairs for geom in pair] for geometry in geometries]
+        # collisions = [geometry.geom in [geom for pair in collisionPairs for geom in pair] for geometry in geometries]
 
         collisions = collide(geometries, ignore)
 
-        #print collisions
+        # print collisions
 
         # Render!!
         for geometry, collided in zip(geometries, collisions):
@@ -735,7 +722,7 @@ def run():
         grid.render()
 
         # Seek the correct limit values
-        softlimits = seekLimits(stackspace, geometries, ignore, moves, monitors, hardlimits, fine=0.01)
+        softlimits = seekLimits(space, geometries, ignore, moves, monitors, hardlimits, fine=0.01)
         setLimits(softlimits, pvs)
 
         # Display the status icon
@@ -764,12 +751,12 @@ def run():
 
         # Print some helpful numbers:
         for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
-            width = text(10, 70+(30*i), "%.2f" % monitor.value, colors[i])
-            width += text(20 + max(width, 70), 70+(30*i), "%.2f" % limit[0], colors[i])
-            width += text(30 + max(width, 70*2), 70+(30*i), "%.2f" % limit[1], colors[i])
+            text(80 * 1, 70 + (30 * i), "%.2f" % monitor.value, colors[i], align="right")
+            text(80 * 2, 70 + (30 * i), "%.2f" % limit[0], colors[i], align="right")
+            text(80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i], align="right")
 
         # Show a heartbeat bar
-        square(10, 565, 5*heartbeat, 25, (0.2, 0.2, 0.2))
+        square(10, 565, 5 * heartbeat, 25, (0.2, 0.2, 0.2))
         if heartbeat > 10:
             heartbeat = 0
         else:
@@ -778,6 +765,7 @@ def run():
         # Show the screen
         pygame.display.flip()
 
-        #pygame.time.wait(10)
+        # pygame.time.wait(10)
+
 
 run()
