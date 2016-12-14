@@ -64,7 +64,7 @@ class GeometryBox(object):
     def __init__(self, space, position, size=(1, 1, 1), color=(1, 1, 1), origin=(0, 0, 0), angle=(0, 0, 0), oversize=1):
         # Set parameters for drawing the body
         self.color = color
-        self.size = size
+        self.size = list(size)
 
         # Create a box geom for collision detection
         self.geom = ode.GeomBox(space, lengths=[s * oversize for s in self.size])
@@ -532,7 +532,8 @@ def run():
     # Colors!!
     colors = [(0, 1, 1),
               (1, 1, 0),
-              (1, 0, 1)]
+              (1, 0, 1),
+              (1, 1, 1)]
 
     # ------------------------------------------------------------------------------------------------------------------
     # Config happens here:
@@ -541,7 +542,7 @@ def run():
     geometries = [GeometryBox(space, (0, 3, 0), color=colors[0], size=(2, 2, 2), origin=(10, 0, 10)),
                   GeometryBox(space, (0, 1.5, 10), color=colors[1], size=(2.0, 1.0, 22.0), origin=(10, 0, 10)),
                   GeometryBox(space, (10, 0.5, 10), color=colors[2], size=(22.0, 1.0, 22.0), origin=(10, 0, 10)),
-                  GeometryBox(space, (20, 3, 10), color=(1, 1, 1), size=(10, 1.9, 1.9))]
+                  GeometryBox(space, (20, 6, 10), color=(1, 1, 1), size=(10, 1.9, 1.9))]
 
     # List of pairs to ignore
     ignore = [[0, 1], [0, 2], [1, 2]]
@@ -551,34 +552,37 @@ def run():
 
     def move(geometry, monitors):
         geometry.setRotation(angles=(0, 0, 0))
-        geometry.setPosition(x=monitors[1].value, z=monitors[0].value)
-        geometry.setRotation(ty=radians(monitors[2].value))
+        geometry.setPosition(x=monitors[1].value, y=monitors[2].value + 3, z=monitors[0].value)
+        geometry.setRotation(ty=radians(monitors[3].value))
 
     moves.append(move)
 
     def move(geometry, monitors):
         geometry.setRotation(angles=(0, 0, 0))
-        geometry.setPosition(x=monitors[1].value)
-        geometry.setRotation(ty=radians(monitors[2].value))
+        geometry.setPosition(x=monitors[1].value,  y=monitors[2].value + 1.5)
+        geometry.setRotation(ty=radians(monitors[3].value))
 
     moves.append(move)
 
     def move(geometry, monitors):
-        geometry.setRotation(ty=radians(monitors[2].value))
+        geometry.setRotation(ty=radians(monitors[3].value))
+        geometry.size[1] = monitors[2].value + 1
+        geometry.setPosition(y=(monitors[2].value+1)/2)
 
     moves.append(move)
 
     # Attach monitors to readbacks
-    pvs = ["TE:NDW1720:MOT:MTR0201", "TE:NDW1720:MOT:MTR0202", "TE:NDW1720:MOT:MTR0203"]
-    # pvs = ["TE:NDW1720:MOT:MTR0101", "TE:NDW1720:MOT:MTR0102", "TE:NDW1720:MOT:MTR0103"]
+    pvs = ["TE:NDW1720:MOT:MTR0201", "TE:NDW1720:MOT:MTR0202", "TE:NDW1720:MOT:MTR0203", "TE:NDW1720:MOT:MTR0204"]
+    # pvs = ["TE:NDW1720:MOT:MTR0101", "TE:NDW1720:MOT:MTR0102", "TE:NDW1720:MOT:MTR0103", "TE:NDW1720:MOT:MTR0104"]
     monitors = []
     for pv in pvs:
         monitor = Monitor(pv + ".RBV")
         monitor.start()
         monitors.append(monitor)
 
-    hardlimits = [[0.0, 20.0],
-                  [0.0, 20.0],
+    hardlimits = [[0.0,  20.0],
+                  [0.0,  20.0],
+                  [0.0,   5.0],
                   [0.0, 360.0]]
 
     # ------------------------------------------------------------------------------------------------------------------
