@@ -32,7 +32,7 @@ def rotation_matrix(rx=0, ry=0, rz=0, angle=None):
     if angle:
         rz, ry, rz = angle
     # Can check if we are only rotating about one axis, then only do that rotation?
-    #R = np.identity(3)
+    #R = np.identity(3) # not very quick!
     R = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
     if rx is not 0:
@@ -593,8 +593,8 @@ def run():
     # Camera transform matrix
     def initialise_camera():
         camera_matrix = Matrix44()
-        camera_matrix.translate = (15.0, 15.0, 30.0)
-        camera_matrix *= Matrix44.xyz_rotation(0, radians(15), 0)
+        camera_matrix.translate = (5.0, 15.0, 30.0)
+        camera_matrix *= Matrix44.xyz_rotation(0, radians(-15), 0)
         camera_matrix *= Matrix44.xyz_rotation(radians(-35), 0, 0)
         return camera_matrix
 
