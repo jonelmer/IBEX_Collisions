@@ -1,20 +1,17 @@
+import numpy as np
+import ode
+import pygame
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
-
-import pygame
+from genie_python.genie_startup import *
 from pygame.locals import *
 
 from gameobjects.matrix44 import *
 from gameobjects.vector3 import *
-
-import ode
-
-import numpy as np
-
-from genie_python.genie_startup import *
-
 from monitor import Monitor, DummyMonitor
+
+import config
 
 SCREEN_SIZE = (800, 600)
 
@@ -62,6 +59,7 @@ def init():
 
 class GeometryBox(object):
     def __init__(self, space, position, size=(1, 1, 1), color=(1, 1, 1), origin=(0, 0, 0), angle=(0, 0, 0), oversize=1):
+        # type: (object, object, object, object, object, object, object) -> object
         # Set parameters for drawing the body
         self.color = color
         self.size = list(size)
@@ -511,14 +509,10 @@ def run():
     glMaterial(GL_FRONT, GL_AMBIENT, (0.1, 0.1, 0.1, 1.0))
     glMaterial(GL_FRONT, GL_DIFFUSE, (1.0, 1.0, 1.0, 1.0))
 
-    # Create a space object for the live world
-    space = ode.Space()
-
     # Need a toggle to allow moving away from a crash
     stopMotors = False
     autoRestart = False
 
-    # Heartbeat bool - toggles each frame
     heartbeat = 0
 
     # Colors!!
@@ -527,62 +521,25 @@ def run():
               (1, 0, 1),
               (1, 1, 1)]
 
-    # ------------------------------------------------------------------------------------------------------------------
-    # Config happens here:
+    moves = config.moves
+    ignore = config.ignore
+    pvs = config.pvs
+    hardlimits = config.hardlimits
 
-    # Define the geometry of the system
-    geometries = [GeometryBox(space, (0, 3, 0), color=colors[0], size=(2, 2, 2), origin=(0, 0, 0)),
-                  GeometryBox(space, (0, 1.5, 0), color=colors[1], size=(2.0, 1.0, 22.0), origin=(0, 0, 0)),
-                  GeometryBox(space, (0, 0.5, 0), color=colors[2], size=(22.0, 1.0, 22.0), origin=(0, 0, 0)),
-                  GeometryBox(space, (10, 6, 0), color=(1, 1, 1), size=(10, 1.9, 1.9))]
+    # Create a space object for the live world
+    space = ode.Space()
 
-    # List of pairs to ignore
-    ignore = [[0, 1], [0, 2], [1, 2]]
+    # Create and populate a list of geometries
+    geometries = []
+    for i, geometry in enumerate(config.geometries):
+        geometries.append(GeometryBox(space, color=colors[i % len(colors)], **geometry))
 
-    # Generate move functions
-    moves = []
-
-    def move(geometry, monitors):
-        geometry.setRotation(angles=(0, 0, 0))
-        geometry.setPosition(x=monitors[1].value(), y=monitors[2].value() + 3, z=monitors[0].value())
-        geometry.setRotation(ty=radians(monitors[3].value()))
-
-    moves.append(move)
-
-    def move(geometry, monitors):
-        geometry.setRotation(angles=(0, 0, 0))
-        geometry.setPosition(x=monitors[1].value(),  y=monitors[2].value() + 1.5)
-        geometry.setRotation(ty=radians(monitors[3].value()))
-
-    moves.append(move)
-
-    def move(geometry, monitors):
-        geometry.setRotation(ty=radians(monitors[3].value()))
-        geometry.size[1] = monitors[2].value() + 1
-        geometry.setPosition(y=(monitors[2].value()+1)/2)
-
-    moves.append(move)
-
-    def move(geometry, monitors):
-        pass
-
-    moves.append(move)
-
-    # Attach monitors to readbacks
-    pvs = ["TE:NDW1720:MOT:MTR0201", "TE:NDW1720:MOT:MTR0202", "TE:NDW1720:MOT:MTR0203", "TE:NDW1720:MOT:MTR0204"]
-    # pvs = ["TE:NDW1720:MOT:MTR0101", "TE:NDW1720:MOT:MTR0102", "TE:NDW1720:MOT:MTR0103", "TE:NDW1720:MOT:MTR0104"]
+    # Create and populate a list of monitors
     monitors = []
     for pv in pvs:
         monitor = Monitor(pv + ".RBV")
         monitor.start()
         monitors.append(monitor)
-
-    hardlimits = [[-10.0,  10.0],
-                  [-10.0,  10.0],
-                  [0.0,   5.0],
-                  [-180.0, 180.0]]
-
-    # ------------------------------------------------------------------------------------------------------------------
 
     # Make a grid
     grid = Grid(scale=1, position=(-11, 0, -11), size=(22, 0, 22))
