@@ -10,18 +10,18 @@ import time as time
 
 
 def eventCB(epics_args, monitor):
-    # print "new value for ", user_args[0], " = ", epics_args['pv_value']
     print("Got an update")
-    threading.Thread(target=monitor.update, args=epics_args).start()
+    monitor.update(epics_args)
 
 
 class Monitor(object):
 
     def __init__(self, pv):
         self.pv = pv
-        self.value = None
+        self.val = None
         self.channel = CaChannel()
         self.running = False
+        self.lock = threading.Lock()
 
     def start(self):
         if self.running: self.stop()
@@ -40,11 +40,14 @@ class Monitor(object):
             None)
         self.channel.pend_event()
         self.running = True
-        #self.value = get_pv(self.pv)
 
     def update(self, epics_args, user_args):
-        self.value = epics_args['pv_value']
-        #print(self.value)
+        with self.lock:
+            self.val = epics_args['pv_value']
+
+    def value(self):
+        with self.lock:
+            return self.val
 
     def stop(self):
         self.channel.clear_event()
@@ -113,6 +116,17 @@ class MonitorQueue(Monitor):
             return False
         else:
             return True
+
+
+class DummyMonitor(object):
+    def __init__(self, value):
+        self.update(value)
+
+    def update(self, value):
+        self.val = value
+
+    def value(self):
+        return self.val
 
 
 def test():

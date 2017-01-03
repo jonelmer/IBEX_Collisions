@@ -14,7 +14,7 @@ import numpy as np
 
 from genie_python.genie_startup import *
 
-from monitor import Monitor
+from monitor import Monitor, DummyMonitor
 
 SCREEN_SIZE = (800, 600)
 
@@ -328,14 +328,6 @@ def limitCB(counter, geom1, geom2):
         counter.increment()
 
 
-class DummyMonitor(object):
-    def __init__(self, value):
-        self.setValue(value)
-
-    def setValue(self, value):
-        self.value = value
-
-
 def sequencer(start, stop, step):
     i = 0
     count = (stop-start)/step
@@ -354,7 +346,7 @@ def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.0
 
     for i in range(len(limits)):
         softlimits.append(list(limits[i][:]))
-        dummies = [DummyMonitor(monitor.value) for monitor in monitors]
+        dummies = [DummyMonitor(monitor.value()) for monitor in monitors]
 
         min = np.min(limits[i])
         max = np.max(limits[i])
@@ -362,10 +354,10 @@ def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.0
         # Do coarse seek
         # Seek backwards to the closest crash/limit
         if min < dummies[i].value:
-            sequence = np.arange(dummies[i].value - coarse, min, -coarse)
-            #sequence = sequencer(dummies[i].value - coarse, min, -coarse)
+            sequence = np.arange(dummies[i].value() - coarse, min, -coarse)
+            #sequence = sequencer(dummies[i].value() - coarse, min, -coarse)
             for value in sequence:
-                dummies[i].setValue(value)
+                dummies[i].update(value)
                 # Move to the new position
                 for move, geometry in zip(moves, geometries):
                     move(geometry, dummies)
@@ -376,7 +368,7 @@ def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.0
                         sequence = np.arange(value, value + coarse, fine)
                         #sequence = sequencer(value, value + coarse, fine)
                         for value in sequence:
-                            dummies[i].setValue(value)
+                            dummies[i].update(value)
                             # Move to the new position
                             for move, geometry in zip(moves, geometries):
                                 move(geometry, dummies)
@@ -387,14 +379,14 @@ def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.0
                     softlimits[i][0] = value
                     break
         else:
-            softlimits[i][0] = dummies[i].value
+            softlimits[i][0] = dummies[i].value()
 
         # Seek forwards to the closest crash/limit
-        if max > dummies[i].value:
-            sequence = np.arange(dummies[i].value + coarse, max, coarse)
-            #sequence = sequencer(dummies[i].value + coarse, max, coarse)
+        if max > dummies[i].value():
+            sequence = np.arange(dummies[i].value() + coarse, max, coarse)
+            #sequence = sequencer(dummies[i].value() + coarse, max, coarse)
             for value in sequence:
-                dummies[i].setValue(value)
+                dummies[i].update(value)
                 # Move to the new position
                 for move, geometry in zip(moves, geometries):
                     move(geometry, dummies)
@@ -405,7 +397,7 @@ def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.0
                         sequence = np.arange(value, value - coarse, -fine)
                         #sequence = sequencer(value, value - coarse, -fine)
                         for value in sequence:
-                            dummies[i].setValue(value)
+                            dummies[i].update(value)
                             # Move to the new position
                             for move, geometry in zip(moves, geometries):
                                 move(geometry, dummies)
@@ -416,7 +408,7 @@ def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.0
                     softlimits[i][1] = value
                     break
         else:
-            softlimits[i][1] = dummies[i].value
+            softlimits[i][1] = dummies[i].value()
 
         # Restore positions
         for move, geometry in zip(moves, geometries):
@@ -552,22 +544,27 @@ def run():
 
     def move(geometry, monitors):
         geometry.setRotation(angles=(0, 0, 0))
-        geometry.setPosition(x=monitors[1].value, y=monitors[2].value + 3, z=monitors[0].value)
-        geometry.setRotation(ty=radians(monitors[3].value))
+        geometry.setPosition(x=monitors[1].value(), y=monitors[2].value() + 3, z=monitors[0].value())
+        geometry.setRotation(ty=radians(monitors[3].value()))
 
     moves.append(move)
 
     def move(geometry, monitors):
         geometry.setRotation(angles=(0, 0, 0))
-        geometry.setPosition(x=monitors[1].value,  y=monitors[2].value + 1.5)
-        geometry.setRotation(ty=radians(monitors[3].value))
+        geometry.setPosition(x=monitors[1].value(),  y=monitors[2].value() + 1.5)
+        geometry.setRotation(ty=radians(monitors[3].value()))
 
     moves.append(move)
 
     def move(geometry, monitors):
-        geometry.setRotation(ty=radians(monitors[3].value))
-        geometry.size[1] = monitors[2].value + 1
-        geometry.setPosition(y=(monitors[2].value+1)/2)
+        geometry.setRotation(ty=radians(monitors[3].value()))
+        geometry.size[1] = monitors[2].value() + 1
+        geometry.setPosition(y=(monitors[2].value()+1)/2)
+
+    moves.append(move)
+
+    def move(geometry, monitors):
+        pass
 
     moves.append(move)
 
@@ -703,7 +700,7 @@ def run():
         # Check for collisions
         collisions = collide(geometries, ignore)
 
-        # Render!!
+        # Render!
         for geometry, collided in zip(geometries, collisions):
             if collided:
                 geometry.render((0.8, 0, 0))
@@ -743,7 +740,7 @@ def run():
 
         # Print some helpful numbers:
         for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
-            text(font, 80 * 1, 70 + (30 * i), "%.2f" % monitor.value, colors[i], align="right")
+            text(font, 80 * 1, 70 + (30 * i), "%.2f" % monitor.value(), colors[i], align="right")
             text(font, 80 * 2, 70 + (30 * i), "%.2f" % limit[0], colors[i], align="right")
             text(font, 80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i], align="right")
 
