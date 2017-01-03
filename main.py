@@ -539,10 +539,10 @@ def run():
     # Config happens here:
 
     # Define the geometry of the system
-    geometries = [GeometryBox(space, (0, 3, 0), color=colors[0], size=(2, 2, 2), origin=(10, 0, 10)),
-                  GeometryBox(space, (0, 1.5, 10), color=colors[1], size=(2.0, 1.0, 22.0), origin=(10, 0, 10)),
-                  GeometryBox(space, (10, 0.5, 10), color=colors[2], size=(22.0, 1.0, 22.0), origin=(10, 0, 10)),
-                  GeometryBox(space, (20, 6, 10), color=(1, 1, 1), size=(10, 1.9, 1.9))]
+    geometries = [GeometryBox(space, (0, 3, 0), color=colors[0], size=(2, 2, 2), origin=(0, 0, 0)),
+                  GeometryBox(space, (0, 1.5, 0), color=colors[1], size=(2.0, 1.0, 22.0), origin=(0, 0, 0)),
+                  GeometryBox(space, (0, 0.5, 0), color=colors[2], size=(22.0, 1.0, 22.0), origin=(0, 0, 0)),
+                  GeometryBox(space, (10, 6, 0), color=(1, 1, 1), size=(10, 1.9, 1.9))]
 
     # List of pairs to ignore
     ignore = [[0, 1], [0, 2], [1, 2]]
@@ -580,20 +580,20 @@ def run():
         monitor.start()
         monitors.append(monitor)
 
-    hardlimits = [[0.0,  20.0],
-                  [0.0,  20.0],
+    hardlimits = [[-10.0,  10.0],
+                  [-10.0,  10.0],
                   [0.0,   5.0],
-                  [0.0, 360.0]]
+                  [-180.0, 180.0]]
 
     # ------------------------------------------------------------------------------------------------------------------
 
     # Make a grid
-    grid = Grid(scale=1, position=(-1, 0, -1), size=(22, 0, 22))
+    grid = Grid(scale=1, position=(-11, 0, -11), size=(22, 0, 22))
 
     # Camera transform matrix
     def initialise_camera():
         camera_matrix = Matrix44()
-        camera_matrix.translate = (5.0, 15.0, 30.0)
+        camera_matrix.translate = (-5.0, 20.0, 25.0)
         camera_matrix *= Matrix44.xyz_rotation(0, radians(-15), 0)
         camera_matrix *= Matrix44.xyz_rotation(radians(-35), 0, 0)
         return camera_matrix
@@ -702,8 +702,6 @@ def run():
 
         # Check for collisions
         collisions = collide(geometries, ignore)
-
-        # print collisions
 
         # Render!!
         for geometry, collided in zip(geometries, collisions):
