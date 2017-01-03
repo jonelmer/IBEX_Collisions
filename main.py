@@ -417,6 +417,7 @@ def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.0
     return softlimits
 
 
+
 # This ignores geometries we have said we don't care about
 # As there are only [(len(geometries)-1)!] combinations, and we don't care about some, there isn't much effort saved
 # by using spaces (which do a quicker estimate of collisions first)
