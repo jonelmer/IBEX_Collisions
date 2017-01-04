@@ -519,7 +519,8 @@ def run():
     colors = [(0, 1, 1),
               (1, 1, 0),
               (1, 0, 1),
-              (1, 1, 1)]
+              (1, 1, 1),
+              (0, 1, 0)]
 
     moves = config.moves
     ignore = config.ignore
@@ -697,9 +698,9 @@ def run():
 
         # Print some helpful numbers:
         for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
-            text(font, 80 * 1, 70 + (30 * i), "%.2f" % monitor.value(), colors[i], align="right")
-            text(font, 80 * 2, 70 + (30 * i), "%.2f" % limit[0], colors[i], align="right")
-            text(font, 80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i], align="right")
+            text(font, 80 * 1, 70 + (30 * i), "%.2f" % monitor.value(), colors[i % len(colors)], align="right")
+            text(font, 80 * 2, 70 + (30 * i), "%.2f" % limit[0], colors[i % len(colors)], align="right")
+            text(font, 80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i % len(colors)], align="right")
 
         text(font, 790, 575, "%.0f" % time_passed, align="right")
 
