@@ -370,7 +370,8 @@ def run():
     colors = [(0, 1, 1),
               (1, 1, 0),
               (1, 0, 1),
-              (1, 1, 1)]
+              (1, 1, 1),
+              (0, 1, 0)]
 
     moves = config.moves
     ignore = config.ignore
