@@ -7,7 +7,7 @@ from genie_python.genie_startup import *
 import config
 from gameobjects.vector3 import *
 from monitor import Monitor, DummyMonitor
-from render import *
+import render
 
 
 def rotation_matrix(rx=0, ry=0, rz=0, angle=None):
@@ -136,9 +136,9 @@ class GeometryBox(object):
             glEnd()
 
     def move(self, x=0, y=0, z=0):
-        pos = self.body.getPosition()
+        pos = self.geom.getPosition()
         pos = tuple([pos[0] + x, pos[1] + y, pos[2] + z])
-        self.body.setPosition(pos)
+        self.geom.setPosition(pos)
 
     def setPosition(self, x=None, y=None, z=None):
         pos = list(self.geom.getPosition())
@@ -385,6 +385,11 @@ def run():
     for i, geometry in enumerate(config.geometries):
         geometries.append(GeometryBox(space, color=colors[i % len(colors)], **geometry))
 
+    # Create and populate a list of geometries
+    rendergeometries = []
+    for i, geometry in enumerate(config.geometries):
+        rendergeometries.append(GeometryBox(space, color=colors[i % len(colors)], **geometry))
+
     # Create and populate a list of monitors
     monitors = []
     for pv in pvs:
@@ -392,7 +397,10 @@ def run():
         monitor.start()
         monitors.append(monitor)
 
-    renderer = Renderer(geometries, colors, monitors, pvs)
+    parameters = render.RenderParams()
+    renderer = render.Renderer(parameters, rendergeometries, colors, monitors, pvs, moves)
+    renderer.daemon = True
+    renderer.start()
 
     while True:
 
@@ -409,8 +417,8 @@ def run():
 
         print softlimits
 
-        renderer.update_params(softlimits, collisions)
-        renderer.run()
+        parameters.update_params(softlimits, collisions)
+        #render.loop(parameters, [renderer.geometries, renderer.colors, renderer.monitors, renderer.pvs])
 
 
 run()
