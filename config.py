@@ -2,18 +2,39 @@ from math import radians
 
 # Config happens here:
 
+colors = [(0, 1, 0),
+          (0, 1, 1),
+          (1, 1, 0),
+          (1, 0, 1),
+          (1, 1, 1)
+          ]
+
+
 # Define the geometry of the system
-geometries = [dict(position=(0, 3, 0), size=(2, 2, 2), origin=(0, 0, 0)),
+geometries = [
+              dict(position=(0, 4.5, 0), size=(2, 1, 2), origin=(0, 8, 0)),
+              dict(position=(0, 3, 0), size=(2, 2, 2), origin=(0, 0, 0)),
               dict(position=(0, 1.5, 0), size=(2.0, 1.0, 22.0), origin=(0, 0, 0)),
               dict(position=(0, 0.5, 0), size=(22.0, 1.0, 22.0), origin=(0, 0, 0)),
-              dict(position=(10, 7, 0), size=(10, 1.9, 1.9)),
-              dict(position=(0, 4.5, 0), size=(2, 1, 2), origin=(0, 7, 0))]
+              dict(position=(10, 7, 0), size=(10, 1.9, 1.9))
+              ]
 
 # List of pairs to ignore
-ignore = [[0, 1], [0, 2], [1, 2], [4, 0], [4, 1], [4, 2]]
+ignore = [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]]
 
 # Generate move functions
 moves = []
+
+
+def move(geometry, monitors):
+    geometry.setRotation(angles=(0, 0, 0))
+    position = dict(x=monitors[1].value(), y=monitors[2].value() + 4.5, z=monitors[0].value())
+    geometry.setPosition(**position)
+    position['y'] = 8
+    origin = [position['x'], position['y'], position['z']]
+    geometry.setRotation(ty=radians(monitors[3].value()), tz=radians(monitors[4].value()), origin=origin)
+
+moves.append(move)
 
 
 def move(geometry, monitors):
@@ -42,17 +63,6 @@ moves.append(move)
 
 def move(geometry, monitors):
     pass
-
-moves.append(move)
-
-
-def move(geometry, monitors):
-    geometry.setRotation(angles=(0, 0, 0))
-    position = dict(x=monitors[1].value(), y=monitors[2].value() + 4.5, z=monitors[0].value())
-    geometry.setPosition(**position)
-    position['y'] = 7
-    origin = [position['x'], position['y'], position['z']]
-    geometry.setRotation(ty=radians(monitors[3].value()), tz=radians(monitors[4].value()), origin=origin)
 
 moves.append(move)
 

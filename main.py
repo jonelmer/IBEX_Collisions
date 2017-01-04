@@ -367,11 +367,7 @@ def setLimits(limits, pvs):
 def run():
 
     # Colors!!
-    colors = [(0, 1, 1),
-              (1, 1, 0),
-              (1, 0, 1),
-              (1, 1, 1),
-              (0, 1, 0)]
+    colors = config.colors
 
     moves = config.moves
     ignore = config.ignore
