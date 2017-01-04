@@ -2,29 +2,12 @@ import numpy as np
 import ode
 import pygame
 from OpenGL.GL import *
-from OpenGL.GLU import *
-from OpenGL.GLUT import *
 from genie_python.genie_startup import *
-from pygame.locals import *
-import threading
-from copy import copy
-
-from gameobjects.matrix44 import *
-from gameobjects.vector3 import *
-from monitor import Monitor, DummyMonitor
 
 import config
-
-SCREEN_SIZE = (800, 600)
-
-
-def resize(width, height):
-    glViewport(0, 0, width, height)
-    glMatrixMode(GL_PROJECTION)
-    glLoadIdentity()
-    gluPerspective(60.0, float(width) / height, .1, 1000.)
-    glMatrixMode(GL_MODELVIEW)
-    glLoadIdentity()
+from gameobjects.vector3 import *
+from monitor import Monitor, DummyMonitor
+from render import *
 
 
 def rotation_matrix(rx=0, ry=0, rz=0, angle=None):
@@ -44,19 +27,6 @@ def rotation_matrix(rx=0, ry=0, rz=0, angle=None):
         R = np.dot(np.array([[cos(rz), -sin(rz), 0], [sin(rz), cos(rz), 0], [0, 0, 1]]), R)
 
     return R
-
-
-def init():
-    glEnable(GL_DEPTH_TEST)
-
-    glShadeModel(GL_FLAT)
-    glClearColor(0, 0, 0, 0.0)
-
-    glEnable(GL_COLOR_MATERIAL)
-
-    glEnable(GL_LIGHTING)
-    glEnable(GL_LIGHT0)
-    glLight(GL_LIGHT0, GL_POSITION, (0, 1, 1, 0))
 
 
 class GeometryBox(object):
@@ -209,51 +179,6 @@ class GeometryBox(object):
 
     def getRotation(self):
         return self.angles
-
-
-class Grid(object):
-    def __init__(self, scale=5, size=(20, 0, 20), position=(0, 0, 0), color=(0.2, 0.2, 0.2)):
-
-        # self.position = list(position)
-        self.color = color
-        self.position = position
-        self.size = size
-        self.scale = scale
-
-    vertices = [(0.0, 0.0, 0.0),
-                (1.0, 0.0, 0.0),
-                (1.0, 0.0, 1.0),
-                (0.0, 0.0, 1.0)]
-
-    edge_indices = [(0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (3, 0)]
-
-    def render(self):
-
-        glColor(self.color)
-
-        glBegin(GL_LINES)
-
-        for x in xrange(0, self.size[0], self.scale):
-            for z in xrange(0, self.size[2], self.scale):
-
-                offset = (x, 0, z);
-
-                # Adjust all the vertices so that the grid is at self.position
-                vertices = self.vertices
-                vertices = [tuple(Vector3(v) * self.scale) for v in vertices]
-                vertices = [tuple(Vector3(v) + self.position) for v in vertices]
-                vertices = [tuple(Vector3(v) + offset) for v in vertices]
-
-                for edge_no in xrange(4):
-                    v1, v2 = self.edge_indices[edge_no]
-
-                    glVertex(vertices[v1])
-                    glVertex(vertices[v2])
-
-        glEnd()
 
 
 #### Not needed but has some tricks in it
@@ -439,265 +364,6 @@ def setLimits(limits, pvs):
         set_pv(pv + '.HLM', np.max(limit))
 
 
-def square(x, y, w=50, h=50, color=(1, 0, 0)):
-    glMatrixMode(GL_PROJECTION)
-    glPushMatrix()
-    glLoadIdentity()
-    glOrtho(0, SCREEN_SIZE[0], SCREEN_SIZE[1], 0, 0, 1)
-    glMatrixMode(GL_MODELVIEW)
-    glLoadIdentity()
-    glDisable(GL_CULL_FACE)
-    glClear(GL_DEPTH_BUFFER_BIT)
-    glColor(color)
-    glBegin(GL_QUADS)
-    glVertex((x, y))
-    glVertex((x + w, y))
-    glVertex((x + w, y + h))
-    glVertex((x, y + h))
-    glEnd()
-    glMatrixMode(GL_PROJECTION)
-    glPopMatrix()
-    glMatrixMode(GL_MODELVIEW)
-
-
-def text(font, x, y, string, color=(0.4, 0.4, 0.4), align="left"):
-    color = [c * 255 for c in color]
-    color.append(255)
-
-    y += 18
-
-    glMatrixMode(GL_PROJECTION)
-    glPushMatrix()
-    glLoadIdentity()
-    glOrtho(0, SCREEN_SIZE[0], SCREEN_SIZE[1], 0, 0, 1)
-    glMatrixMode(GL_MODELVIEW)
-    glLoadIdentity()
-    glDisable(GL_CULL_FACE)
-    glClear(GL_DEPTH_BUFFER_BIT)
-    glColor(color)
-
-    textSurface = font.render(string, True, color, (0, 0, 0, 255))
-    textData = pygame.image.tostring(textSurface, "RGBA", True)
-
-    if align is "right":
-        glRasterPos2d(x - textSurface.get_width(), y)
-    else:
-        glRasterPos2d(x, y)
-
-    glDrawPixels(textSurface.get_width(), textSurface.get_height(), GL_RGBA, GL_UNSIGNED_BYTE, textData)
-
-    glMatrixMode(GL_PROJECTION)
-    glPopMatrix()
-    glMatrixMode(GL_MODELVIEW)
-
-    return textSurface.get_width() + x
-
-
-class Renderer():
-    def __init__(self, geometries, collisions, softlimits, colors, monitors):
-        self.geometries = [copy(geometry) for geometry in geometries]
-        self.collisions = collisions
-        self.softlimits = softlimits
-        self.colors = colors
-        self.monitors = monitors
-
-        pygame.init()
-        self.screen = pygame.display.set_mode(SCREEN_SIZE, HWSURFACE | OPENGL | DOUBLEBUF)
-
-        self.font = pygame.font.SysFont("consolas", 18)
-
-        pygame.display.set_caption("Collision Monitor")
-
-        resize(*SCREEN_SIZE)
-        init()
-
-        print(SCREEN_SIZE)
-
-        self.clock = pygame.time.Clock()
-
-        glMaterial(GL_FRONT, GL_AMBIENT, (0.1, 0.1, 0.1, 1.0))
-        glMaterial(GL_FRONT, GL_DIFFUSE, (1.0, 1.0, 1.0, 1.0))
-
-        # Need a toggle to allow moving away from a crash
-        self.stopMotors = False
-        self.autoRestart = False
-
-        self.heartbeat = 0
-
-        self.initialise_camera()
-
-        # Initialize speeds and directions for camera
-        self.rotation_direction = Vector3()
-        self.rotation_speed = radians(90.0)
-        self.movement_direction = Vector3()
-        self.movement_speed = 5.0
-
-        # Make a grid
-        self.grid = Grid(scale=1, position=(-11, 0, -11), size=(22, 0, 22))
-
-    # Camera transform matrix
-    def initialise_camera(self):
-        camera_matrix = Matrix44()
-        camera_matrix.translate = (-5.0, 20.0, 25.0)
-        camera_matrix *= Matrix44.xyz_rotation(0, radians(-15), 0)
-        camera_matrix *= Matrix44.xyz_rotation(radians(-35), 0, 0)
-        self.camera_matrix = camera_matrix
-
-    def check_controls(self):
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                setLimits(config.hardlimits, config.pvs)
-                return
-            if event.type == KEYUP and event.key == K_ESCAPE:
-                setLimits(config.hardlimits, config.pvs)
-                return
-
-                # Clear the screen, and z-buffer
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-
-        self.time_passed = self.clock.tick()
-        time_passed_seconds = self.time_passed / 1000.
-
-        # print(time_passed)
-
-        pressed = pygame.key.get_pressed()
-
-        # Reset rotation and movement directions
-        self.rotation_direction.set(0.0, 0.0, 0.0)
-        self.movement_direction.set(0.0, 0.0, 0.0)
-
-        # Modify direction vectors for key presses
-        if pressed[K_LEFT]:
-            self.rotation_direction.y = +1.0
-        elif pressed[K_RIGHT]:
-            self.rotation_direction.y = -1.0
-        if pressed[K_DOWN]:
-            self.rotation_direction.x = -1.0
-        elif pressed[K_UP]:
-            self.rotation_direction.x = +1.0
-        if pressed[K_z]:
-            self.rotation_direction.z = -1.0
-        elif pressed[K_x]:
-            self.rotation_direction.z = +1.0
-        if pressed[K_w]:
-            self.movement_direction.z = -1.0
-        elif pressed[K_s]:
-            self.movement_direction.z = +1.0
-        if pressed[K_a]:
-            self.movement_direction.x = -1.0
-        elif pressed[K_d]:
-            self.movement_direction.x = +1.0
-        if pressed[K_q]:
-            self.movement_direction.y = -1.0
-        elif pressed[K_e]:
-            self.movement_direction.y = +1.0
-        if pressed[K_1]:
-            self.stopMotors = True
-        elif pressed[K_2]:
-            self.stopMotors = False
-        if pressed[K_3]:
-            self.autoRestart = True
-        elif pressed[K_4]:
-            self.autoRestart = False
-        if pressed[K_SPACE]:
-            self.camera_matrix = self.initialise_camera()
-        if pressed[K_RETURN]:
-            self.setLimits(config.hardlimits, config.pvs)
-
-        # Calculate rotation matrix and multiply by camera matrix
-        rotation = self.rotation_direction * self.rotation_speed * time_passed_seconds
-        rotation_matrix = Matrix44.xyz_rotation(*rotation)
-        self.camera_matrix *= rotation_matrix
-
-        # Calculate forward movement and add it to camera matrix translate
-        heading = Vector3(self.camera_matrix.forward)
-        movement = heading * self.movement_direction.z * self.movement_speed
-        forward = movement * time_passed_seconds
-        self.camera_matrix.translate += forward
-
-        # Calculate strafe movement and add it to camera matrix translate
-        heading = Vector3(self.camera_matrix.right)
-        movement = heading * self.movement_direction.x * self.movement_speed
-        right = movement * time_passed_seconds
-        self.camera_matrix.translate += right
-
-        # Calculate strafe movement and add it to camera matrix translate
-        heading = Vector3(self.camera_matrix.up)
-        movement = heading * self.movement_direction.y * self.movement_speed
-        up = movement * time_passed_seconds
-        self.camera_matrix.translate += up
-
-        # Upload the inverse camera matrix to OpenGL
-        glLoadMatrixd(self.camera_matrix.get_inverse().to_opengl())
-
-        # Light must be transformed as well
-        glLight(GL_LIGHT0, GL_POSITION, (0, 1.5, 1, 0))
-
-    def draw(self):
-        # Render!
-        for geometry, collided in zip(self.geometries, self.collisions):
-            if collided:
-                geometry.render((0.8, 0, 0))
-            else:
-                geometry.render()
-
-        self.grid.render()
-
-        # Display the status icon
-        if any(self.collisions):
-            if self.stopMotors:
-                square(10, 10)
-                for pv in self.pvs:
-                    set_pv(pv + ".STOP", 1)
-                text(self.font, 70, 10, "Collision detected!")
-            else:
-                square(10, 10, color=(1, 0.5, 0))
-                text(self.font, 70, 10, "Collision ignored!")
-        else:
-            if self.stopMotors:
-                square(10, 10, color=(0, 1, 0))
-                text(self.font, 70, 10, "Detecting collisions")
-            else:
-                square(10, 10, color=(1, 1, 0))
-                self.stopMotors = self.autoRestart
-                text(self.font, 70, 10, "Ignoring collisions")
-
-        if autoRestart:
-            text(self.font, 70, 35, "Auto-restart on")
-        else:
-            text(self.font, 70, 35, "Auto-restart off")
-
-        # Print some helpful numbers:
-        for i, (monitor, limit) in enumerate(zip(self.monitors, self.softlimits)):
-            text(self.font, 80 * 1, 70 + (30 * i), "%.2f" % monitor.value(), self.colors[i], align="right")
-            text(self.font, 80 * 2, 70 + (30 * i), "%.2f" % limit[0], self.colors[i], align="right")
-            text(self.font, 80 * 3, 70 + (30 * i), "%.2f" % limit[1], self.colors[i], align="right")
-
-        text(self.font, 790, 575, "%.0f" % self.time_passed, align="right")
-
-        # Show a heartbeat bar
-        square(0, 595, 8 * self.heartbeat, 5, (0.3, 0.3, 0.3))
-        if self.heartbeat > 100:
-            self.heartbeat = 0
-            # Need to return for sensible profiling
-            # return
-        else:
-            self.heartbeat += 1
-
-        # Show the screen
-        pygame.display.flip()
-
-        # pygame.time.wait(10)
-
-    def loop(self):
-        while True:
-            # wait for fresh values??
-            self.draw()
-
-    def start(self):
-        threading.Thread(target=self.loop).start()
-
-
 def run():
 
     # Colors!!
@@ -726,11 +392,7 @@ def run():
         monitor.start()
         monitors.append(monitor)
 
-    # Somewhere to store collisions
-    collisions = []
-
-    # Somewhere to store softlimits
-    softlimits = []
+    renderer = Renderer(geometries, colors, monitors, pvs)
 
     while True:
 
@@ -744,6 +406,11 @@ def run():
         #softlimits = hardlimits
         softlimits = seekLimits(geometries, ignore, moves, monitors, hardlimits, coarse=1.0, fine=0.1)
         setLimits(softlimits, pvs)
+
+        print softlimits
+
+        renderer.update_params(softlimits, collisions)
+        renderer.run()
 
 
 run()
