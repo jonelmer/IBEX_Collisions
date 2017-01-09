@@ -262,7 +262,7 @@ def sequencer(start, stop, step):
         i += 1
 
 
-def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.01):
+def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0, fine=0.01):
     softlimits = []
 
     dofineseek = True
@@ -361,8 +361,8 @@ def collide(geometries, ignore):
 
 def setLimits(limits, pvs):
     for limit, pv in zip(limits, pvs):
-        set_pv(pv + '.LLM', np.min(limit))
-        set_pv(pv + '.HLM', np.max(limit))
+        set_pv(pv + '.DLLM', np.min(limit))
+        set_pv(pv + '.DHLM', np.max(limit))
 
 
 def run():
@@ -390,15 +390,27 @@ def run():
 
     # Create and populate a list of monitors
     monitors = []
+    ismoving = []
     for pv in pvs:
-        monitor = Monitor(pv + ".RBV")
+        monitor = Monitor(pv + ".DRBV")
         monitor.start()
         monitors.append(monitor)
+
+        moving = Monitor(pv + ".MOVN")
+        moving.start()
+        ismoving.append(moving)
 
     parameters = render.RenderParams()
     renderer = render.Renderer(parameters, rendergeometries, colors, monitors, pvs, moves)
     renderer.daemon = True
     renderer.start()
+
+    collisions = collide(geometries, ignore)
+
+    softlimits = seekLimits(geometries, ignore, moves, monitors, ismoving, hardlimits, coarse=1.0, fine=0.1)
+    setLimits(softlimits, pvs)
+
+    parameters.update_params(softlimits, collisions)
 
     while True:
 
@@ -408,15 +420,14 @@ def run():
         # Check for collisions
         collisions = collide(geometries, ignore)
 
-        # Seek the correct limit values
-        #softlimits = hardlimits
-        softlimits = seekLimits(geometries, ignore, moves, monitors, hardlimits, coarse=1.0, fine=0.1)
-        setLimits(softlimits, pvs)
+        if any([m.value() for m in ismoving]):
+            # Seek the correct limit values
+            softlimits = seekLimits(geometries, ignore, moves, monitors, ismoving, hardlimits, coarse=1.0, fine=0.1)
+            setLimits(softlimits, pvs)
 
-        print softlimits
+            print softlimits
 
-        parameters.update_params(softlimits, collisions)
-        #render.loop(parameters, [renderer.geometries, renderer.colors, renderer.monitors, renderer.pvs])
+            parameters.update_params(softlimits, collisions)
         sleep(0.01)
 
 

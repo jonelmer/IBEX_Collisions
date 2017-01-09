@@ -314,69 +314,69 @@ def text(x, y, string, color=(0.4, 0.4, 0.4), align="left"):
 
 
 def draw(parameters, geometries, colors, monitors, pvs, moves):
-        softlimits, collisions = parameters.get_params()
+    softlimits, collisions = parameters.get_params()
 
-        global stopMotors, autoRestart, heartbeat, time_passed
+    global stopMotors, autoRestart, heartbeat, time_passed
 
-        # Clear the screen, and z-buffer
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    # Clear the screen, and z-buffer
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-        for move, geometry in zip(moves, geometries):
-            move(geometry, monitors)
+    for move, geometry in zip(moves, geometries):
+        move(geometry, monitors)
 
-        # Render!
-        for geometry, collided in zip(geometries, collisions):
-            if collided:
-                geometry.render((0.8, 0, 0))
-            else:
-                geometry.render()
-
-        grid.render()
-
-        # Display the status icon
-        if any(collisions):
-            if stopMotors:
-                square(10, 10)
-                for pv in pvs:
-                    set_pv(pv + ".STOP", 1)
-                text(70, 10, "Collision detected!")
-            else:
-                square(10, 10, color=(1, 0.5, 0))
-                text(70, 10, "Collision ignored!")
+    # Render!
+    for geometry, collided in zip(geometries, collisions):
+        if collided:
+            geometry.render((0.8, 0, 0))
         else:
-            if stopMotors:
-                square(10, 10, color=(0, 1, 0))
-                text(70, 10, "Detecting collisions")
-            else:
-                square(10, 10, color=(1, 1, 0))
-                stopMotors = autoRestart
-                text(70, 10, "Ignoring collisions")
+            geometry.render()
 
-        if autoRestart:
-            text(70, 35, "Auto-restart on")
+    grid.render()
+
+    # Display the status icon
+    if any(collisions):
+        if stopMotors:
+            square(10, 10)
+            for pv in pvs:
+                set_pv(pv + ".STOP", 1)
+            text(70, 10, "Collision detected!")
         else:
-            text(70, 35, "Auto-restart off")
-
-        for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
-            text(80 * 1, 70 + (30 * i), "%.2f" % monitor.value(), colors[i], align="right")
-            text(80 * 2, 70 + (30 * i), "%.2f" % limit[0], colors[i], align="right")
-            text(80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i], align="right")
-
-        text(790, 575, "%.0f" % time_passed, align="right")
-
-        # Show a heartbeat bar
-        square(0, 595, 8 * heartbeat, 5, (0.3, 0.3, 0.3))
-        if heartbeat > 100:
-            heartbeat = 0
-            # Need to return for sensible profiling
-            # return
+            square(10, 10, color=(1, 0.5, 0))
+            text(70, 10, "Collision ignored!")
+    else:
+        if stopMotors:
+            square(10, 10, color=(0, 1, 0))
+            text(70, 10, "Detecting collisions")
         else:
-            heartbeat += 1
+            square(10, 10, color=(1, 1, 0))
+            stopMotors = autoRestart
+            text(70, 10, "Ignoring collisions")
 
-        # Show the screen
-        pygame.display.flip()
+    if autoRestart:
+        text(70, 35, "Auto-restart on")
+    else:
+        text(70, 35, "Auto-restart off")
 
-        pygame.time.wait(10)
+    for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
+        text(80 * 1, 70 + (30 * i), "%.2f" % monitor.value(), colors[i], align="right")
+        text(80 * 2, 70 + (30 * i), "%.2f" % limit[0], colors[i], align="right")
+        text(80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i], align="right")
+
+    text(790, 575, "%.0f" % time_passed, align="right")
+
+    # Show a heartbeat bar
+    square(0, 595, 8 * heartbeat, 5, (0.3, 0.3, 0.3))
+    if heartbeat > 100:
+        heartbeat = 0
+        # Need to return for sensible profiling
+        # return
+    else:
+        heartbeat += 1
+
+    # Show the screen
+    pygame.display.flip()
+
+    pygame.time.wait(10)
 
 
 def loop(parameters, args):
