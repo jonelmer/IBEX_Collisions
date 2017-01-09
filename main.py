@@ -142,7 +142,9 @@ class GeometryBox(object):
         pos = tuple([pos[0] + x, pos[1] + y, pos[2] + z])
         self.geom.setPosition(pos)
 
-    def setPosition(self, x=None, y=None, z=None):
+    def setPosition(self, x=None, y=None, z=None, coords=None):
+        if coords is not None:
+            x, y, z = coords
         pos = list(self.geom.getPosition())
         if x is not None:
             pos[0] = x

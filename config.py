@@ -1,4 +1,5 @@
 from math import radians
+import numpy as np
 
 # Config happens here:
 
@@ -28,11 +29,19 @@ moves = []
 
 def move(geometry, monitors):
     geometry.setRotation(angles=(0, 0, 0))
-    position = dict(x=monitors[1].value(), y=monitors[2].value() + 4.5, z=monitors[0].value())
-    geometry.setPosition(**position)
-    position['y'] = 8
-    origin = [position['x'], position['y'], position['z']]
-    geometry.setRotation(ty=radians(monitors[3].value()), tz=radians(monitors[4].value()), origin=origin)
+    position = [monitors[1].value(), monitors[2].value() + 4.5, monitors[0].value()]
+
+    ry = radians(monitors[3].value())
+
+    rot = np.array([[np.cos(ry), 0, -np.sin(ry)], [0, 1, 0], [np.sin(ry), 0, np.cos(ry)]])
+
+    position = np.dot(rot.T, position)
+    geometry.setPosition(coords=position)
+
+    origin = position[:]
+    origin[1] = 8
+
+    geometry.setRotation(ty=ry, tz=radians(monitors[4].value()), origin=origin)
 
 moves.append(move)
 
