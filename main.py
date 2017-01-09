@@ -3,6 +3,7 @@ import ode
 import pygame
 from OpenGL.GL import *
 from genie_python.genie_startup import *
+from time import sleep
 
 import config
 from gameobjects.vector3 import *
@@ -416,6 +417,7 @@ def run():
 
         parameters.update_params(softlimits, collisions)
         #render.loop(parameters, [renderer.geometries, renderer.colors, renderer.monitors, renderer.pvs])
+        sleep(0.01)
 
 
 run()

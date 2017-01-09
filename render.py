@@ -316,7 +316,7 @@ def text(x, y, string, color=(0.4, 0.4, 0.4), align="left"):
 def draw(parameters, geometries, colors, monitors, pvs, moves):
         softlimits, collisions = parameters.get_params()
 
-        global stopMotors, autoRestart, heartbeat
+        global stopMotors, autoRestart, heartbeat, time_passed
 
         # Clear the screen, and z-buffer
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -376,7 +376,7 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
         # Show the screen
         pygame.display.flip()
 
-        # pygame.time.wait(10)
+        pygame.time.wait(10)
 
 
 def loop(parameters, args):
