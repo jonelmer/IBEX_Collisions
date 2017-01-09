@@ -9,6 +9,7 @@ import config
 from gameobjects.vector3 import *
 from monitor import Monitor, DummyMonitor
 import render
+import threading
 
 
 def rotation_matrix(rx=0, ry=0, rz=0, angle=None):
@@ -400,8 +401,9 @@ def run():
         moving.start()
         ismoving.append(moving)
 
+    close = threading.Event()
     parameters = render.RenderParams()
-    renderer = render.Renderer(parameters, rendergeometries, colors, monitors, pvs, moves)
+    renderer = render.Renderer(parameters, rendergeometries, colors, monitors, pvs, moves, close)
     renderer.daemon = True
     renderer.start()
 
@@ -429,6 +431,11 @@ def run():
 
             parameters.update_params(softlimits, collisions)
         sleep(0.01)
+
+        if close.is_set():
+            setLimits(hardlimits, pvs)
+            return
+
 
 
 run()

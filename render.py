@@ -1,5 +1,3 @@
-import threading
-from copy import copy, deepcopy
 from math import radians
 
 import pygame
@@ -148,7 +146,7 @@ def glinit():
 
 
 class Renderer(threading.Thread):
-    def __init__(self, parameters, geometries, colors, monitors, pvs, moves):
+    def __init__(self, parameters, geometries, colors, monitors, pvs, moves, close):
         threading.Thread.__init__(self)
 
         #self.geometries = [copy(geometry) for geometry in geometries]
@@ -160,23 +158,26 @@ class Renderer(threading.Thread):
         self.moves = moves
 
         self.parameters = parameters
+        self.close = close
 
     def run(self):
-
+        self.close.clear()
         glinit()
         while True:
-            loop(self.parameters, [self.geometries, self.colors, self.monitors, self.pvs, self.moves])
+            loop(self.parameters, self.close, [self.geometries, self.colors, self.monitors, self.pvs, self.moves])
 
 
-def check_controls():
+def check_controls(close):
 
     global camera_matrix, stopMotors, autoRestart, time_passed
 
     for event in pygame.event.get():
         if event.type == QUIT:
+            close.set()
     #        setLimits(config.hardlimits, self.pvs)
             return
         if event.type == KEYUP and event.key == K_ESCAPE:
+            close.set()
     #        setLimits(config.hardlimits, self.pvs)
             return
 
@@ -379,8 +380,8 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
     pygame.time.wait(10)
 
 
-def loop(parameters, args):
-    check_controls()
+def loop(parameters, close, args):
+    check_controls(close)
     if parameters.stale is False:
 
         # wait for fresh values??
