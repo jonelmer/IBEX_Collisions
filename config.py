@@ -14,10 +14,10 @@ colors = [(0, 1, 0),
 
 # Define the geometry of the system
 geometries = [
-              dict(position=(0, 4.5, 0), size=(2, 1, 2), origin=(0, 8, 0)),
-              dict(position=(0, 3, 0), size=(2, 2, 2), origin=(0, 0, 0)),
-              dict(position=(0, 1.5, 0), size=(2.0, 1.0, 22.0), origin=(0, 0, 0)),
-              dict(position=(0, 0.5, 0), size=(22.0, 1.0, 22.0), origin=(0, 0, 0)),
+              dict(size=(2, 1, 2), origin=(0, 8, 0)),
+              dict(size=(2, 2, 2), origin=(0, 0, 0)),
+              dict(size=(2.0, 1.0, 22.0), origin=(0, 0, 0)),
+              dict(size=(22.0, 1.0, 22.0), origin=(0, 0, 0)),
               dict(position=(10, 7, 0), size=(10, 1.9, 1.9))
               ]
 

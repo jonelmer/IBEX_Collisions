@@ -23,6 +23,7 @@ from gameobjects.matrix44 import Matrix44
 from gameobjects.vector3 import Vector3
 
 
+# This is super greedy on resources!! Can definitely optimise a ton!
 class Grid(object):
     def __init__(self, scale=5, size=(20, 0, 20), position=(0, 0, 0), color=(0.2, 0.2, 0.2)):
 
@@ -332,7 +333,7 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
         else:
             geometry.render()
 
-    grid.render()
+    #grid.render()
 
     # Display the status icon
     if any(collisions):
