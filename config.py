@@ -1,5 +1,6 @@
-from math import radians
+from math import radians, sin, cos
 import numpy as np
+from transform import Transformation
 
 # Config happens here:
 
@@ -33,7 +34,7 @@ def move(geometry, monitors):
 
     ry = radians(monitors[3].value())
 
-    rot = np.array([[np.cos(ry), 0, -np.sin(ry)], [0, 1, 0], [np.sin(ry), 0, np.cos(ry)]])
+    rot = np.array([[cos(ry), 0, -sin(ry)], [0, 1, 0], [sin(ry), 0, cos(ry)]])
 
     position = np.dot(rot.T, position)
     geometry.setPosition(coords=position)
@@ -47,7 +48,6 @@ moves.append(move)
 
 
 def move(geometry, monitors):
-    geometry.setRotation(angles=(0, 0, 0))
     geometry.setPosition(x=monitors[1].value(), y=monitors[2].value() + 3, z=monitors[0].value())
     geometry.setRotation(ty=radians(monitors[3].value()))
 
@@ -55,7 +55,6 @@ moves.append(move)
 
 
 def move(geometry, monitors):
-    geometry.setRotation(angles=(0, 0, 0))
     geometry.setPosition(x=monitors[1].value(),  y=monitors[2].value() + 1.5)
     geometry.setRotation(ty=radians(monitors[3].value()))
 
@@ -63,9 +62,12 @@ moves.append(move)
 
 
 def move(geometry, monitors):
-    geometry.setRotation(ty=radians(monitors[3].value()))
+    t = Transformation()
+    t.translate(y=(monitors[2].value() + 1) / 2)
+    t.rotate(ry=radians(monitors[3].value()))
+    geometry.setTransform(t)
+
     geometry.size[1] = monitors[2].value() + 1
-    geometry.setPosition(y=(monitors[2].value()+1)/2)
 
 moves.append(move)
 

@@ -184,6 +184,14 @@ class GeometryBox(object):
     def getRotation(self):
         return self.angles
 
+    def setTransform(self, transform):
+        rot, pos = transform.split()
+
+        rot = np.reshape(rot, 9, 1)
+
+        self.geom.setPosition(pos)
+        self.geom.setRotation(rot)
+
 
 #### Not needed but has some tricks in it
 class Map(object):
