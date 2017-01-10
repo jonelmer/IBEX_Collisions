@@ -18,6 +18,7 @@ from pygame.constants import HWSURFACE, OPENGL, DOUBLEBUF, QUIT, KEYUP, K_ESCAPE
     K_x, K_w, K_s, K_a, K_d, K_q, K_e, K_1, K_2, K_3, K_4, K_SPACE, K_RETURN
 
 import threading
+import logging
 
 from gameobjects.matrix44 import Matrix44
 from gameobjects.vector3 import Vector3
@@ -78,6 +79,9 @@ def initialise_camera():
     return camera_matrix
 
 
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s (%(threadName)-2s) %(message)s',
+                    )
 
 screensize = (800, 600)
 
@@ -148,7 +152,7 @@ def glinit():
 
 class Renderer(threading.Thread):
     def __init__(self, parameters, geometries, colors, monitors, pvs, moves, close):
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, name="Renderer")
 
         #self.geometries = [copy(geometry) for geometry in geometries]
         self.geometries = geometries
@@ -164,7 +168,7 @@ class Renderer(threading.Thread):
     def run(self):
         self.close.clear()
         glinit()
-        while True:
+        while self.close.is_set() is False:
             loop(self.parameters, self.close, [self.geometries, self.colors, self.monitors, self.pvs, self.moves])
 
 
@@ -185,7 +189,7 @@ def check_controls(close):
     time_passed = clock.tick()
     time_passed_seconds = time_passed / 1000.
 
-    # print(time_passed)
+    logging.debug("Frame drawn in %d", time_passed)
 
     pressed = pygame.key.get_pressed()
 
@@ -316,7 +320,7 @@ def text(x, y, string, color=(0.4, 0.4, 0.4), align="left"):
 
 
 def draw(parameters, geometries, colors, monitors, pvs, moves):
-    softlimits, collisions = parameters.get_params()
+    softlimits, collisions, duration = parameters.get_params()
 
     global stopMotors, autoRestart, heartbeat, time_passed
 
@@ -364,6 +368,9 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
         text(80 * 2, 70 + (30 * i), "%.2f" % limit[0], colors[i], align="right")
         text(80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i], align="right")
 
+    if duration > 0:
+        text(790, 555, "%.0f" % duration, align="right")
+
     text(790, 575, "%.0f" % time_passed, align="right")
 
     # Show a heartbeat bar
@@ -394,13 +401,15 @@ class RenderParams(object):
         self.lock = threading.Lock()
         self.softlimits = []
         self.collisions = []
+        self.duration = None
         self.stale = True
 
-    def update_params(self, softlimits, collisions):
+    def update_params(self, softlimits, collisions, duration):
         with self.lock:
-            print "got lock for update"
+            logging.debug("Acquired lock for update")
             self.softlimits = softlimits
             self.collisions = collisions
+            self.duration = duration
 
             if self.stale:
                 self.stale = False
@@ -408,9 +417,9 @@ class RenderParams(object):
 
     def get_params(self):
         with self.lock:
-            print "got lock for read"
+            logging.debug("Acquired lock for read")
             #self.stale = True
-            return self.softlimits, self.collisions
+            return self.softlimits, self.collisions, self.duration
 
 
 

@@ -3,13 +3,14 @@ import ode
 import pygame
 from OpenGL.GL import *
 from genie_python.genie_startup import *
-from time import sleep
+from time import sleep, time
 
 import config
 from gameobjects.vector3 import *
 from monitor import Monitor, DummyMonitor
 import render
 import threading
+import logging
 
 
 def rotation_matrix(rx=0, ry=0, rz=0, angle=None):
@@ -422,7 +423,7 @@ def run():
     softlimits = seekLimits(geometries, ignore, moves, monitors, ismoving, hardlimits, coarse=1.0, fine=0.1)
     setLimits(softlimits, pvs)
 
-    parameters.update_params(softlimits, collisions)
+    parameters.update_params(softlimits, collisions, 0)
 
     while True:
 
@@ -433,13 +434,18 @@ def run():
         collisions = collide(geometries, ignore)
 
         if any([m.value() for m in ismoving]):
+            time_passed = time()
+
             # Seek the correct limit values
             softlimits = seekLimits(geometries, ignore, moves, monitors, ismoving, hardlimits, coarse=1.0, fine=0.1)
             setLimits(softlimits, pvs)
 
-            print softlimits
+            logging.debug("New limits are " + str(softlimits))
 
-            parameters.update_params(softlimits, collisions)
+            time_passed = (time() - time_passed) * 1000
+            logging.debug("Calculated limits in %d", time_passed)
+
+            parameters.update_params(softlimits, collisions, time_passed)
         sleep(0.01)
 
         if close.is_set():
