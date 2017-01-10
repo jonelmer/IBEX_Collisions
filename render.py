@@ -73,9 +73,9 @@ class Grid(object):
 # Camera transform matrix
 def initialise_camera():
     camera_matrix = Matrix44()
-    camera_matrix.translate = (-5.0, 20.0, 25.0)
-    camera_matrix *= Matrix44.xyz_rotation(0, radians(-15), 0)
-    camera_matrix *= Matrix44.xyz_rotation(radians(-35), 0, 0)
+    camera_matrix.translate = (-10, -25, 20.0)
+    camera_matrix *= Matrix44.xyz_rotation(0, 0, -0.4)
+    camera_matrix *= Matrix44.xyz_rotation(1, 0, 0)
     return camera_matrix
 
 
@@ -139,7 +139,8 @@ def glinit():
 
     glEnable(GL_LIGHTING)
     glEnable(GL_LIGHT0)
-    glLight(GL_LIGHT0, GL_POSITION, (0, 1, 1, 0))
+
+    glLight(GL_LIGHT0, GL_POSITION, [0, 0, 0])
 
     glMaterial(GL_FRONT, GL_AMBIENT, (0.1, 0.1, 0.1, 1.0))
     glMaterial(GL_FRONT, GL_DIFFUSE, (1.0, 1.0, 1.0, 1.0))
@@ -262,7 +263,8 @@ def check_controls(close):
     glLoadMatrixd(camera_matrix.get_inverse().to_opengl())
 
     # Light must be transformed as well
-    glLight(GL_LIGHT0, GL_POSITION, (0, 1.5, 1, 0))
+    light = camera_matrix.transform([0, 0, 0])
+    glLight(GL_LIGHT0, GL_POSITION, light)
 
 
 def square(x, y, w=50, h=50, color=(1, 0, 0)):
