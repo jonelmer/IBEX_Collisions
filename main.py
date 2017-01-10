@@ -32,7 +32,7 @@ def rotation_matrix(rx=0, ry=0, rz=0, angle=None):
 
 
 class GeometryBox(object):
-    def __init__(self, space, position, size=(1, 1, 1), color=(1, 1, 1), origin=(0, 0, 0), angle=(0, 0, 0), oversize=1):
+    def __init__(self, space, position=(0, 0, 0), size=(1, 1, 1), color=(1, 1, 1), origin=(0, 0, 0), angle=(0, 0, 0), oversize=1):
         # type: (object, object, object, object, object, object, object) -> object
         # Set parameters for drawing the body
         self.color = color
@@ -187,7 +187,7 @@ class GeometryBox(object):
     def setTransform(self, transform):
         rot, pos = transform.split()
 
-        rot = np.reshape(rot, 9, 1)
+        rot = np.reshape(rot.T, 9, 1)
 
         self.geom.setPosition(pos)
         self.geom.setRotation(rot)

@@ -29,34 +29,33 @@ moves = []
 
 
 def move(geometry, monitors):
-    geometry.setRotation(angles=(0, 0, 0))
-    position = [monitors[1].value(), monitors[2].value() + 4.5, monitors[0].value()]
-
-    ry = radians(monitors[3].value())
-
-    rot = np.array([[cos(ry), 0, -sin(ry)], [0, 1, 0], [sin(ry), 0, cos(ry)]])
-
-    position = np.dot(rot.T, position)
-    geometry.setPosition(coords=position)
-
-    origin = position[:]
-    origin[1] = 8
-
-    geometry.setRotation(ty=ry, tz=radians(monitors[4].value()), origin=origin)
+    t = Transformation()
+    t.translate(y=-2)
+    t.rotate(rz=radians(monitors[4].value()))
+    t.translate(y=2+4.5)
+    t.translate(x=monitors[1].value(), y=monitors[2].value(), z=monitors[0].value())
+    t.rotate(ry=radians(monitors[3].value()))
+    geometry.setTransform(t)
 
 moves.append(move)
 
 
 def move(geometry, monitors):
-    geometry.setPosition(x=monitors[1].value(), y=monitors[2].value() + 3, z=monitors[0].value())
-    geometry.setRotation(ty=radians(monitors[3].value()))
+    t = Transformation()
+    t.translate(y=3)
+    t.translate(x=monitors[1].value(), y=monitors[2].value(), z=monitors[0].value())
+    t.rotate(ry=radians(monitors[3].value()))
+    geometry.setTransform(t)
 
 moves.append(move)
 
 
 def move(geometry, monitors):
-    geometry.setPosition(x=monitors[1].value(),  y=monitors[2].value() + 1.5)
-    geometry.setRotation(ty=radians(monitors[3].value()))
+    t = Transformation()
+    t.translate(y=1.5)
+    t.translate(x=monitors[1].value(),  y=monitors[2].value())
+    t.rotate(ry=radians(monitors[3].value()))
+    geometry.setTransform(t)
 
 moves.append(move)
 

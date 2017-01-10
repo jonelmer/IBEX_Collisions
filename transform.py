@@ -10,8 +10,6 @@ class Transformation(object):
         return np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 
     def rotate(self, rx=0, ry=0, rz=0):
-        rotate = self.identity()
-
         if rx is not 0:
             rotate = np.array([[1,       0,        0, 0],
                                [0, cos(rx), -sin(rx), 0],
