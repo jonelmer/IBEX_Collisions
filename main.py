@@ -390,14 +390,11 @@ def run():
     # Create a space object for the live world
     space = ode.Space()
 
-    # Create and populate a list of geometries
+    # Create and populate lists of geometries
     geometries = []
-    for i, geometry in enumerate(config.geometries):
-        geometries.append(GeometryBox(space, color=colors[i % len(colors)], **geometry))
-
-    # Create and populate a list of geometries
     rendergeometries = []
     for i, geometry in enumerate(config.geometries):
+        geometries.append(GeometryBox(space, color=colors[i % len(colors)], **geometry))
         rendergeometries.append(GeometryBox(space, color=colors[i % len(colors)], **geometry))
 
     # Create and populate a list of monitors
