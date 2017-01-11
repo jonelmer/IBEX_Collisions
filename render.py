@@ -73,7 +73,7 @@ class Grid(object):
 # Camera transform matrix
 def initialise_camera():
     camera_matrix = Matrix44()
-    camera_matrix.translate = (-10, -25, 20.0)
+    camera_matrix.translate = (-15, -30, 25)
     camera_matrix *= Matrix44.xyz_rotation(0, 0, -0.4)
     camera_matrix *= Matrix44.xyz_rotation(1, 0, 0)
     return camera_matrix
@@ -98,8 +98,6 @@ time_passed = 0
 font = None
 
 
-pygame.display.set_caption("Collision Monitor")
-
 
 camera_matrix = initialise_camera()
 
@@ -117,8 +115,11 @@ def glinit():
     pygame.init()
 
     screen = pygame.display.set_mode(screensize, HWSURFACE | OPENGL | DOUBLEBUF)
+
     global font
     font = pygame.font.SysFont("consolas", 18)
+
+    pygame.display.set_caption("Collision Monitor")
 
     # set the screen size
     glViewport(0, 0, screensize[0], screensize[1])
@@ -157,6 +158,9 @@ class Renderer(threading.Thread):
 
         #self.geometries = [copy(geometry) for geometry in geometries]
         self.geometries = geometries
+
+        #for geometry in self.geometries:
+        #    geometry.fill = True
 
         self.colors = colors
         self.monitors = monitors
@@ -366,9 +370,9 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
         text(70, 35, "Auto-restart off")
 
     for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
-        text(80 * 1, 70 + (30 * i), "%.2f" % monitor.value(), colors[i], align="right")
-        text(80 * 2, 70 + (30 * i), "%.2f" % limit[0], colors[i], align="right")
-        text(80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i], align="right")
+        text(80 * 1, 70 + (30 * i), "%.2f" % monitor.value(), colors[i % len(colors)], align="right")
+        text(80 * 2, 70 + (30 * i), "%.2f" % limit[0], colors[i % len(colors)], align="right")
+        text(80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i % len(colors)], align="right")
 
     if duration > 0:
         text(790, 555, "%.0f" % duration, align="right")
