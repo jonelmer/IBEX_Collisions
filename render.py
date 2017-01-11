@@ -73,7 +73,7 @@ class Grid(object):
 # Camera transform matrix
 def initialise_camera():
     camera_matrix = Matrix44()
-    camera_matrix.translate = (-15, -30, 25)
+    camera_matrix.translate = (-20, -30, 25)
     camera_matrix *= Matrix44.xyz_rotation(0, 0, -0.4)
     camera_matrix *= Matrix44.xyz_rotation(1, 0, 0)
     return camera_matrix
@@ -83,7 +83,7 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s (%(threadName)-2s) %(message)s',
                     )
 
-screensize = (800, 600)
+screensize = (600, 480)
 
 clock = pygame.time.Clock()
 
@@ -377,13 +377,14 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
         text(80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i % len(colors)], align="right")
 
     if duration > 0:
-        text(790, 555, "%.0f" % duration, align="right")
+        text(screensize[0]-10, screensize[1]-45, "%.0f" % duration, align="right")
 
-    text(790, 575, "%.0f" % time_passed, align="right")
+    text(screensize[0]-10, screensize[1]-25, "%.0f" % time_passed, align="right")
 
     # Show a heartbeat bar
-    square(0, 595, 8 * heartbeat, 5, (0.3, 0.3, 0.3))
-    if heartbeat > 100:
+    heartticks = 100
+    square(0, screensize[1]-5, screensize[0] * heartbeat/ heartticks, 5, (0.3, 0.3, 0.3))
+    if heartbeat > heartticks:
         heartbeat = 0
         # Need to return for sensible profiling
         # return
