@@ -345,6 +345,7 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
 
     #grid.render()
 
+    # Set the normal so that the hud is lit nicely
     glNormal3dv((0, 0, 1))
 
     # Display the status icon
