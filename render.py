@@ -1,7 +1,7 @@
 from math import radians
 
 import pygame
-from OpenGL.GL import glLight, glMaterial, glColor, glVertex
+from OpenGL.GL import *
 from OpenGL.GL.VERSION.GL_1_0 import glLoadMatrixd
 from OpenGL.GL.exceptional import glBegin, glEnd
 from OpenGL.GL.images import glDrawPixels
@@ -159,8 +159,8 @@ class Renderer(threading.Thread):
         #self.geometries = [copy(geometry) for geometry in geometries]
         self.geometries = geometries
 
-        #for geometry in self.geometries:
-        #    geometry.fill = True
+        for geometry in self.geometries:
+            geometry.fill = True
 
         self.colors = colors
         self.monitors = monitors
@@ -344,6 +344,8 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
             geometry.render()
 
     #grid.render()
+
+    glNormal3dv((0, 0, 1))
 
     # Display the status icon
     if any(collisions):

@@ -112,14 +112,12 @@ class GeometryBox(object):
             glBegin(GL_QUADS)
 
             for face_no in xrange(self.num_faces):
-                glNormal3dv(self.normals[face_no])
+                normal = np.array(self.normals[face_no] + (1, )).T
+                glNormal3dv(np.dot(normal, rot.T)[0:3])
 
-                v1, v2, v3, v4 = self.vertex_indices[face_no]
-
-                glVertex(vertices[v1])
-                glVertex(vertices[v2])
-                glVertex(vertices[v3])
-                glVertex(vertices[v4])
+                for i in self.vertex_indices[face_no]:
+                    point = np.array([vertices[i][0], vertices[i][1], vertices[i][2], 1]).T
+                    glVertex(np.dot(point, rot))
 
             glEnd()
         else:

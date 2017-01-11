@@ -3,7 +3,7 @@ from transform import Transformation
 
 # Config happens here:
 
-colors = [(1, 1, 1), (1, 0, 1), (1, 1, 0), (0, 1, 1), (0, 1, 0), [1, 0.5, 0], [0.2, 0.2, 1], [0, 1, 0]]
+colors = [(0.8, 0.8, 0.8), (1, 0, 1), (1, 1, 0), (0, 1, 1), (0, 1, 0), (1, 0.5, 0), (0.2, 0.2, 1), (0, 1, 0), (1, 1, 1)]
 
 # Define the geometry of the system
 geometries = [
