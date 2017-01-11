@@ -437,7 +437,7 @@ def run():
         # Check for collisions
         collisions = collide(geometries, ignore)
 
-        if True:#any([m.value() for m in ismoving]):
+        if any([m.value() for m in ismoving]):
             time_passed = time()
 
             # Seek the correct limit values
@@ -454,7 +454,8 @@ def run():
         if any(collisions):
             for moving, pv in zip(ismoving, pvs):
                 if moving:
-                    set_pv(pv + '.STOP', 1)
+                    #set_pv(pv + '.STOP', 1)
+                    pass
 
         if close.is_set():
             setLimits(hardlimits, pvs)
