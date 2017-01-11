@@ -18,7 +18,7 @@ geometries = [
 
               dict(size=(15.0, 22.0, 1.0)),
 
-              #dict(position=(10, 0, 8), size=(10, 1.9, 1.9))
+              dict(position=(7, 0, 15), size=(10, 1.5, 1.5))
               ]
 
 # List of pairs to ignore

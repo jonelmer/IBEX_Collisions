@@ -274,7 +274,7 @@ def sequencer(start, stop, step):
         i += 1
 
 
-def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0, fine=0.01):
+def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0, fine=0.1):
     softlimits = []
 
     dofineseek = True
@@ -292,7 +292,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
         # Do coarse seek
         # Seek backwards to the closest crash/limit
         if min < dummies[i].value:
-            sequence = np.arange(dummies[i].value() - coarse, min, -coarse)
+            sequence = np.arange(dummies[i].value(), min-coarse, -coarse)
             #sequence = sequencer(dummies[i].value() - coarse, min, -coarse)
             for value in sequence:
                 dummies[i].update(value)
@@ -321,7 +321,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
 
         # Seek forwards to the closest crash/limit
         if max > dummies[i].value():
-            sequence = np.arange(dummies[i].value() + coarse, max, coarse)
+            sequence = np.arange(dummies[i].value(), max+coarse, coarse)
             #sequence = sequencer(dummies[i].value() + coarse, max, coarse)
             for value in sequence:
                 dummies[i].update(value)
@@ -348,9 +348,16 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
         else:
             softlimits[i][1] = dummies[i].value()
 
-        # Restore positions
-        for move, geometry in zip(moves, geometries):
-            move(geometry, monitors)
+        if softlimits[i][0] < min:
+            softlimits[i][0] = min
+
+        if softlimits[i][1] > max:
+            softlimits[i][1] = max
+
+
+    # Restore positions
+    for move, geometry in zip(moves, geometries):
+        move(geometry, monitors)
 
     return softlimits
 
@@ -430,7 +437,7 @@ def run():
         # Check for collisions
         collisions = collide(geometries, ignore)
 
-        if any([m.value() for m in ismoving]):
+        if True:#any([m.value() for m in ismoving]):
             time_passed = time()
 
             # Seek the correct limit values
@@ -443,11 +450,17 @@ def run():
             logging.debug("Calculated limits in %d", time_passed)
 
             parameters.update_params(softlimits, collisions, time_passed)
-        sleep(0.01)
+
+        if any(collisions):
+            for moving, pv in zip(ismoving, pvs):
+                if moving:
+                    set_pv(pv + '.STOP', 1)
 
         if close.is_set():
             setLimits(hardlimits, pvs)
             return
+
+        sleep(0.01)
 
 
 
