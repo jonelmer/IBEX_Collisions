@@ -22,6 +22,7 @@ class Monitor(object):
         self.channel = CaChannel()
         self.running = False
         self.lock = threading.Lock()
+        self.stale = True
 
     def start(self):
         if self.running: self.stop()
@@ -44,10 +45,18 @@ class Monitor(object):
     def update(self, epics_args, user_args):
         with self.lock:
             self.val = epics_args['pv_value']
+            self.stale = False
 
     def value(self):
         with self.lock:
+            self.stale = True
             return self.val
+
+    def fresh(self):
+        with self.lock:
+            fresh = not self.stale
+            self.stale = True
+            return fresh
 
     def stop(self):
         self.channel.clear_event()

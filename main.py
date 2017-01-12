@@ -301,7 +301,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
                 collisions = collide(geometries, ignore)
                 if any(collisions):
                     if dofineseek:
-                        sequence = np.arange(value, value + coarse, fine)
+                        sequence = np.arange(value + coarse, value, -fine)
                         #sequence = sequencer(value, value + coarse, fine)
                         for value in sequence:
                             dummies[i].update(value)
@@ -310,7 +310,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
                                 move(geometry, dummies)
                             # Check for collisions
                             collisions = collide(geometries, ignore)
-                            if not any(collisions):
+                            if any(collisions):
                                 break
                     softlimits[i][0] = value
                     break
@@ -330,7 +330,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
                 collisions = collide(geometries, ignore)
                 if any(collisions):
                     if dofineseek:
-                        sequence = np.arange(value, value - coarse, -fine)
+                        sequence = np.arange(value - coarse, value, fine)
                         #sequence = sequencer(value, value - coarse, -fine)
                         for value in sequence:
                             dummies[i].update(value)
@@ -339,7 +339,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
                                 move(geometry, dummies)
                             # Check for collisions
                             collisions = collide(geometries, ignore)
-                            if not any(collisions):
+                            if any(collisions):
                                 break
                     softlimits[i][1] = value
                     break
@@ -435,7 +435,7 @@ def run():
         # Check for collisions
         collisions = collide(geometries, ignore)
 
-        if any([m.value() for m in ismoving]):
+        if any([m.fresh() for m in ismoving]):
             time_passed = time()
 
             # Seek the correct limit values
