@@ -418,14 +418,14 @@ def run():
     parameters = render.RenderParams()
     renderer = render.Renderer(parameters, rendergeometries, colors, monitors, pvs, moves, close)
     renderer.daemon = True
-    renderer.start()
 
     collisions = collide(geometries, ignore)
 
-    softlimits = seekLimits(geometries, ignore, moves, monitors, ismoving, hardlimits, coarse=1.0, fine=0.1)
+    softlimits = seekLimits(geometries, ignore, moves, monitors, ismoving, hardlimits, coarse=10.0, fine=0.1)
     setLimits(softlimits, pvs)
 
     parameters.update_params(softlimits, collisions, 0)
+    renderer.start()
 
     while True:
 
@@ -439,7 +439,7 @@ def run():
             time_passed = time()
 
             # Seek the correct limit values
-            softlimits = seekLimits(geometries, ignore, moves, monitors, ismoving, hardlimits, coarse=1.0, fine=0.1)
+            softlimits = seekLimits(geometries, ignore, moves, monitors, ismoving, hardlimits, coarse=10.0, fine=0.1)
             setLimits(softlimits, pvs)
 
             logging.debug("New limits are " + str(softlimits))
@@ -450,6 +450,7 @@ def run():
             parameters.update_params(softlimits, collisions, time_passed)
 
         if any(collisions):
+            logging.debug("Collisions on %s", [i for i in np.where(collisions)[0]])
             for moving, pv in zip(ismoving, pvs):
                 if moving:
                     #set_pv(pv + '.STOP', 1)

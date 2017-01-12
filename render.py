@@ -73,9 +73,10 @@ class Grid(object):
 # Camera transform matrix
 def initialise_camera():
     camera_matrix = Matrix44()
-    camera_matrix.translate = (-20, -30, 25)
+    camera_matrix.translate = (-700, -1400, 1800)
+    #camera_matrix.translate = (-10, -25, 20)
     camera_matrix *= Matrix44.xyz_rotation(0, 0, -0.4)
-    camera_matrix *= Matrix44.xyz_rotation(1, 0, 0)
+    camera_matrix *= Matrix44.xyz_rotation(0.95, 0, 0)
     return camera_matrix
 
 
@@ -83,7 +84,10 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s (%(threadName)-2s) %(message)s',
                     )
 
-screensize = (600, 480)
+screensize = (820, 720)
+
+import os
+os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (5, 25)
 
 clock = pygame.time.Clock()
 
@@ -105,7 +109,7 @@ camera_matrix = initialise_camera()
 rotation_direction = Vector3()
 rotation_speed = radians(90.0)
 movement_direction = Vector3()
-movement_speed = 5.0
+movement_speed = 50.0
 
 # Make a grid
 grid = Grid(scale=1, position=(-11, 0, -11), size=(22, 0, 22))
@@ -125,7 +129,8 @@ def glinit():
     glViewport(0, 0, screensize[0], screensize[1])
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    gluPerspective(60.0, float(screensize[0]) / screensize[1], .1, 1000.)
+    # FOV angle, aspect ratio, near clipping plane, far clipping plane
+    gluPerspective(60.0, float(screensize[0]) / screensize[1], 500, 10000.)
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
 
@@ -143,10 +148,7 @@ def glinit():
 
     glLight(GL_LIGHT0, GL_POSITION, [0, 0, 0])
 
-    glMaterial(GL_FRONT, GL_AMBIENT, (0.1, 0.1, 0.1, 1.0))
-    glMaterial(GL_FRONT, GL_DIFFUSE, (1.0, 1.0, 1.0, 1.0))
-
-
+    glMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, (0.5, 0.5, 0.5, 1.0))
 
     # Clear the screen, and z-buffer
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
