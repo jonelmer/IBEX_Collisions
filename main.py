@@ -299,6 +299,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
             sequence = np.arange(start, min, -coarse)
             # Make sure the last step is the hard limit
             sequence = np.append(sequence, min)
+            collided = False
             for c in sequence:
                 step = c
                 dummies[i].update(step)
@@ -308,6 +309,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
                 # Check for collisions
                 collisions = collide(geometries, ignore)
                 if any(collisions):
+                    collided = False
                     break
 
             # Consider whether to do a fine seek
@@ -315,7 +317,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
                 # There was already a crash before we started to seek
                 softlimits[i][0] = start
 
-            elif step == min:
+            elif step == min and not collided:
                 # We didn't find any collisions so safe to use the limit
                 softlimits[i][0] = min
 
@@ -345,6 +347,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
             sequence = np.arange(start, max, coarse)
             # Make sure the last step is the hard limit
             sequence = np.append(sequence, max)
+            collided = False
             for c in sequence:
                 step = c
                 dummies[i].update(step)
@@ -354,6 +357,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
                 # Check for collisions
                 collisions = collide(geometries, ignore)
                 if any(collisions):
+                    collided = True
                     break
 
             # Consider whether to do a fine seek
@@ -361,7 +365,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
                 # There was already a crash before we started to seek
                 softlimits[i][1] = start
 
-            elif step == max:
+            elif step == max and not collided:
                 # We didn't find any collisions so safe to use the limit
                 softlimits[i][1] = max
 
