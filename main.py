@@ -452,8 +452,11 @@ def run():
 
     while True:
 
+        frozen = [DummyMonitor(monitor.value()) for monitor in monitors]
+        #frozen = monitors
+
         for move, geometry in zip(moves, geometries):
-            move(geometry, monitors)
+            move(geometry, frozen)
 
         # Check for collisions
         collisions = collide(geometries, ignore)
@@ -465,7 +468,7 @@ def run():
             time_passed = time()
 
             # Seek the correct limit values
-            softlimits = seekLimits(geometries, ignore, moves, monitors, ismoving, hardlimits, coarse=10.0, fine=0.1)
+            softlimits = seekLimits(geometries, ignore, moves, frozen, ismoving, hardlimits, coarse=10.0, fine=0.1)
             setLimits(softlimits, pvs)
 
             logging.debug("New limits are " + str(softlimits))
