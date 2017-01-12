@@ -282,70 +282,98 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
 
     for i in range(len(limits)):
         softlimits.append(list(limits[i][:]))
+
         dummies = [DummyMonitor(monitor.value()) for monitor in monitors]
+
+        start = dummies[i].value()
 
         min = np.min(limits[i])
         max = np.max(limits[i])
 
-        # Do coarse seek
-        # Seek backwards to the closest crash/limit
-        if min < dummies[i].value:
-            sequence = np.arange(dummies[i].value(), min-coarse, -coarse)
-            #sequence = sequencer(dummies[i].value() - coarse, min, -coarse)
-            for value in sequence:
-                dummies[i].update(value)
-                # Move to the new position
+        # Already exceeded the hard limit!!
+        if min >= start:
+            softlimits[i][0] = min
+        else:
+            # Seek the lower limit
+            sequence = np.arange(start, min, -coarse)
+            for c in sequence:
+                dummies[i].update(c)
+                # Move to position
                 for move, geometry in zip(moves, geometries):
                     move(geometry, dummies)
                 # Check for collisions
                 collisions = collide(geometries, ignore)
                 if any(collisions):
-                    if dofineseek:
-                        sequence = np.arange(value + coarse, value, -fine)
-                        #sequence = sequencer(value, value + coarse, fine)
-                        for value in sequence:
-                            dummies[i].update(value)
-                            # Move to the new position
-                            for move, geometry in zip(moves, geometries):
-                                move(geometry, dummies)
-                            # Check for collisions
-                            collisions = collide(geometries, ignore)
-                            if any(collisions):
-                                break
-                    softlimits[i][0] = value+fine
+                    if c == sequence[0]:
+                        # There was already a crash before we started to seek
+                        break
+                    # There is a collision between c+coarse and c
+                    sequence = np.arange(c+coarse, c-fine, -fine)
+                    for f in sequence:
+                        dummies[i].update(f)
+                        # Move to position
+                        for move, geometry in zip(moves, geometries):
+                            move(geometry, dummies)
+                        # Check for collisions
+                        collisions = collide(geometries, ignore)
+                        if any(collisions):
+                            # There is a collision between f+fine and f
+                            # Set the limit to f+fine
+                            softlimits[i][0] = f + fine
+                            break
+                        else:
+                            pass
+                            # Do the next fine step
+                    # No fine collisions found - must be at the extreme of our fine search
+                    softlimits[i][1] = f + fine
                     break
-        else:
-            softlimits[i][0] = dummies[i].value()
+                else:
+                    pass
+                    # Do the next coarse step
 
-        # Seek forwards to the closest crash/limit
-        if max > dummies[i].value():
-            sequence = np.arange(dummies[i].value(), max+coarse, coarse)
-            #sequence = sequencer(dummies[i].value() + coarse, max, coarse)
-            for value in sequence:
-                dummies[i].update(value)
-                # Move to the new position
+
+        #  Already exceeded the hard limit!!
+        if max <= start:
+            softlimits[i][1] = max
+        else:
+            # Seek the upper limit
+            sequence = np.arange(start, max, coarse)
+            for c in sequence:
+                dummies[i].update(c)
+                # Move to position
                 for move, geometry in zip(moves, geometries):
                     move(geometry, dummies)
                 # Check for collisions
                 collisions = collide(geometries, ignore)
                 if any(collisions):
-                    if dofineseek:
-                        sequence = np.arange(value - coarse, value, fine)
-                        #sequence = sequencer(value, value - coarse, -fine)
-                        for value in sequence:
-                            dummies[i].update(value)
-                            # Move to the new position
-                            for move, geometry in zip(moves, geometries):
-                                move(geometry, dummies)
-                            # Check for collisions
-                            collisions = collide(geometries, ignore)
-                            if any(collisions):
-                                break
-                    softlimits[i][1] = value-fine
+                    if c == sequence[0]:
+                        # There was already a crash before we started to seek
+                        break
+                    # There is a collision between c and c-coarse
+                    sequence = np.arange(c-coarse, c+fine, fine)
+                    for f in sequence:
+                        dummies[i].update(f)
+                        # Move to position
+                        for move, geometry in zip(moves, geometries):
+                            move(geometry, dummies)
+                        # Check for collisions
+                        collisions = collide(geometries, ignore)
+                        if any(collisions):
+                            # There is a collision between f and f-fine
+                            # Set the limit to f-fine
+                            softlimits[i][1] = f - fine
+                            break
+                        else:
+                            pass
+                            # Do the next fine step
+                    # No fine collisions found - must be at the extreme of our fine search
+                    softlimits[i][1] = f - fine
                     break
-        else:
-            softlimits[i][1] = dummies[i].value()
+                else:
+                    pass
+                    # Do the next coarse step
 
+        # Cap the limits
         if softlimits[i][0] < min:
             softlimits[i][0] = min
 
