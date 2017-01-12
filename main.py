@@ -299,18 +299,8 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
             sequence = np.arange(start, min, -coarse)
             # Make sure the last step is the hard limit
             sequence = np.append(sequence, min)
-            collided = False
-            for c in sequence:
-                step = c
-                dummies[i].update(step)
-                # Move to position
-                for move, geometry in zip(moves, geometries):
-                    move(geometry, dummies)
-                # Check for collisions
-                collisions = collide(geometries, ignore)
-                if any(collisions):
-                    collided = False
-                    break
+
+            step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
 
             # Consider whether to do a fine seek
             if step == start:
@@ -324,16 +314,8 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
             else:
                 # There is a collision between step+coarse and step
                 sequence = np.arange(step+coarse, step, -fine)
-                for f in sequence:
-                    step = f
-                    dummies[i].update(step)
-                    # Move to position
-                    for move, geometry in zip(moves, geometries):
-                        move(geometry, dummies)
-                    # Check for collisions
-                    collisions = collide(geometries, ignore)
-                    if any(collisions):
-                        break
+
+                step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
 
                 softlimits[i][0] = step + fine
 
@@ -347,18 +329,8 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
             sequence = np.arange(start, max, coarse)
             # Make sure the last step is the hard limit
             sequence = np.append(sequence, max)
-            collided = False
-            for c in sequence:
-                step = c
-                dummies[i].update(step)
-                # Move to position
-                for move, geometry in zip(moves, geometries):
-                    move(geometry, dummies)
-                # Check for collisions
-                collisions = collide(geometries, ignore)
-                if any(collisions):
-                    collided = True
-                    break
+
+            step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
 
             # Consider whether to do a fine seek
             if step == start:
@@ -372,16 +344,8 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
             else:
                 # There is a collision between step-coarse and step
                 sequence = np.arange(step-coarse, step, fine)
-                for f in sequence:
-                    step = f
-                    dummies[i].update(step)
-                    # Move to position
-                    for move, geometry in zip(moves, geometries):
-                        move(geometry, dummies)
-                    # Check for collisions
-                    collisions = collide(geometries, ignore)
-                    if any(collisions):
-                        break
+
+                step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
 
                 softlimits[i][1] = step - fine
 
@@ -399,6 +363,24 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
         move(geometry, monitors)
 
     return softlimits
+
+def seek(sequence, dummies, i, moves, geometries, ignore):
+    collided = False
+    step = None
+
+    for c in sequence:
+        step = c
+        dummies[i].update(step)
+        # Move to position
+        for move, geometry in zip(moves, geometries):
+            move(geometry, dummies)
+        # Check for collisions
+        collisions = collide(geometries, ignore)
+        if any(collisions):
+            collided = True
+            break
+
+    return step, collided
 
 
 # This ignores geometries we have said we don't care about
@@ -476,7 +458,10 @@ def run():
         # Check for collisions
         collisions = collide(geometries, ignore)
 
-        if any([m.fresh() for m in ismoving]):
+        fresh = any([m.fresh() for m in ismoving])
+        moving = any([m.value() for m in ismoving])
+
+        if fresh or moving:
             time_passed = time()
 
             # Seek the correct limit values

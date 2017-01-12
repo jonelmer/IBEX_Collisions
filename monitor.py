@@ -55,7 +55,7 @@ class Monitor(object):
     def fresh(self):
         with self.lock:
             fresh = not self.stale
-            self.stale = True
+            #self.stale = True
             return fresh
 
     def stop(self):
