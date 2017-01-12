@@ -23,6 +23,8 @@ import logging
 from gameobjects.matrix44 import Matrix44
 from gameobjects.vector3 import Vector3
 
+from monitor import DummyMonitor
+
 
 # This is super greedy on resources!! Can definitely optimise a ton!
 class Grid(object):
@@ -176,7 +178,8 @@ class Renderer(threading.Thread):
         self.close.clear()
         glinit()
         while self.close.is_set() is False:
-            loop(self.parameters, self.close, [self.geometries, self.colors, self.monitors, self.pvs, self.moves])
+            frozen = [DummyMonitor(monitor.value()) for monitor in self.monitors]
+            loop(self.parameters, self.close, [self.geometries, self.colors, frozen, self.pvs, self.moves])
 
 
 def check_controls(close):
