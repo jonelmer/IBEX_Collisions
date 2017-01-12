@@ -312,7 +312,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
                             collisions = collide(geometries, ignore)
                             if any(collisions):
                                 break
-                    softlimits[i][0] = value
+                    softlimits[i][0] = value+fine
                     break
         else:
             softlimits[i][0] = dummies[i].value()
@@ -341,7 +341,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
                             collisions = collide(geometries, ignore)
                             if any(collisions):
                                 break
-                    softlimits[i][1] = value
+                    softlimits[i][1] = value-fine
                     break
         else:
             softlimits[i][1] = dummies[i].value()
