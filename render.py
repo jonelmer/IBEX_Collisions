@@ -163,7 +163,7 @@ def glinit():
 
 
 class Renderer(threading.Thread):
-    def __init__(self, parameters, geometries, colors, monitors, pvs, moves, close):
+    def __init__(self, parameters, geometries, colors, monitors, pvs, moves, op_mode):
         threading.Thread.__init__(self, name="Renderer")
 
         #self.geometries = [copy(geometry) for geometry in geometries]
@@ -179,28 +179,26 @@ class Renderer(threading.Thread):
         self.moves = moves
 
         self.parameters = parameters
-        self.close = close
+        self.op_mode = op_mode
 
     def run(self):
-        self.close.clear()
+        self.op_mode.close.clear()
         glinit()
-        while self.close.is_set() is False:
+        while self.op_mode.close.is_set() is False:
             frozen = [DummyMonitor(monitor.value()) for monitor in self.monitors]
-            loop(self.parameters, self.close, [self.geometries, self.colors, frozen, self.pvs, self.moves])
+            loop(self.parameters, self.op_mode, [self.geometries, self.colors, frozen, self.pvs, self.moves])
 
 
-def check_controls(close):
+def check_controls(op_mode):
 
     global camera_matrix, stopMotors, autoRestart, time_passed
 
     for event in pygame.event.get():
         if event.type == QUIT:
-            close.set()
-    #        setLimits(config.hardlimits, self.pvs)
+            op_mode.close.set()
             return
         if event.type == KEYUP and event.key == K_ESCAPE:
-            close.set()
-    #        setLimits(config.hardlimits, self.pvs)
+            op_mode.close.set()
             return
 
     time_passed = clock.tick()
@@ -240,13 +238,13 @@ def check_controls(close):
     elif pressed[K_e]:
         movement_direction.y = +1.0
     if pressed[K_1]:
-        stopMotors = True
+        op_mode.auto_stop.set()
     elif pressed[K_2]:
-        stopMotors = False
+        op_mode.auto_stop.clear()
     if pressed[K_3]:
-        autoRestart = True
+        op_mode.set_limits.set()
     elif pressed[K_4]:
-        autoRestart = False
+        op_mode.set_limits.clear()
     if pressed[K_SPACE]:
         camera_matrix = initialise_camera()
     # if pressed[K_RETURN]:
@@ -336,7 +334,7 @@ def text(x, y, string, color=(0.4, 0.4, 0.4), align="left"):
     return textSurface.get_width() + x
 
 
-def draw(parameters, geometries, colors, monitors, pvs, moves):
+def draw(parameters, op_mode, geometries, colors, monitors, pvs, moves):
     softlimits, collisions, duration = parameters.get_params()
 
     global stopMotors, autoRestart, heartbeat, time_passed
@@ -344,13 +342,14 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
     # Clear the screen, and z-buffer
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-    glColor((1, 0, 0))
-    glBegin(GL_QUADS)
-    glVertex((10, 10, 0))
-    glVertex((10, -10, 0))
-    glVertex((-10, -10, 0))
-    glVertex((-10, 10, 0))
-    glEnd()
+    # A patch at the origin
+    # glColor((1, 0, 0))
+    # glBegin(GL_QUADS)
+    # glVertex((10, 10, 0))
+    # glVertex((10, -10, 0))
+    # glVertex((-10, -10, 0))
+    # glVertex((-10, 10, 0))
+    # glEnd()
 
     move_all(monitors, geometries, moves)
     # Render!
@@ -367,27 +366,36 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
 
     # Display the status icon
     if any(collisions):
-        if stopMotors:
+        if op_mode.auto_stop.is_set():
+            # Red
             square(10, 10)
-            for pv in pvs:
-                set_pv(pv + ".STOP", 1)
             text(70, 10, "Collision detected!")
         else:
+            # Orange
             square(10, 10, color=(1, 0.5, 0))
             text(70, 10, "Collision ignored!")
     else:
-        if stopMotors:
-            square(10, 10, color=(0, 1, 0))
-            text(70, 10, "Detecting collisions")
+        if op_mode.auto_stop.is_set():
+            if op_mode.set_limits.is_set():
+                # Green
+                square(10, 10, color=(0, 1, 0))
+            else:
+                # Cyan
+                square(10, 10, color=(0, 1, 1))
+            text(70, 10, "Stop on collision")
         else:
-            square(10, 10, color=(1, 1, 0))
-            stopMotors = autoRestart
+            if op_mode.set_limits.is_set():
+                # Yellow
+                square(10, 10, color=(1, 1, 0))
+            else:
+                # Blue
+                square(10, 10, color=(0, 0, 1))
             text(70, 10, "Ignoring collisions")
 
-    if autoRestart:
-        text(70, 35, "Auto-restart on")
+    if op_mode.set_limits.is_set():
+        text(70, 35, "Setting limits")
     else:
-        text(70, 35, "Auto-restart off")
+        text(70, 35, "Not setting limits")
 
     for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
         text(80 * 1, 70 + (30 * i), "%.2f" % limit[0], colors[i % len(colors)], align="right")
@@ -415,12 +423,12 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
     pygame.time.wait(max(50 - time_passed, 0))
 
 
-def loop(parameters, close, args):
-    check_controls(close)
+def loop(parameters, op_mode, args):
+    check_controls(op_mode)
     if parameters.stale is False:
 
         # wait for fresh values??
-        draw(parameters, *args)
+        draw(parameters, op_mode, *args)
 
 
 class RenderParams(object):

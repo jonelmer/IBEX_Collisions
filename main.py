@@ -422,6 +422,13 @@ def setLimits(limits, pvs):
         set_pv(pv + '.DHLM', np.max(limit))
 
 
+class State(object):
+    def __init__(self):
+        self.close = threading.Event()
+        self.set_limits = threading.Event()
+        self.auto_stop = threading.Event()
+
+
 def run():
 
     # Colors!!
@@ -454,9 +461,12 @@ def run():
         moving.start()
         ismoving.append(moving)
 
-    close = threading.Event()
+    op_mode = State()
+    op_mode.set_limits.set()
+    op_mode.auto_stop.set()
+
     parameters = render.RenderParams()
-    renderer = render.Renderer(parameters, rendergeometries, colors, monitors, pvs, moves, close)
+    renderer = render.Renderer(parameters, rendergeometries, colors, monitors, pvs, moves, op_mode)
     renderer.daemon = True
 
     collisions = collide(geometries, ignore)
@@ -484,23 +494,30 @@ def run():
 
             # Seek the correct limit values
             softlimits = seekLimits(geometries, ignore, moves, frozen, ismoving, hardlimits, coarse=10.0, fine=0.1)
-            setLimits(softlimits, pvs)
 
             logging.debug("New limits are " + str(softlimits))
 
             time_passed = (time() - time_passed) * 1000
             logging.debug("Calculated limits in %d", time_passed)
 
+            if op_mode.set_limits.is_set():
+                setLimits(softlimits, pvs)
+            else:
+                setLimits(hardlimits, pvs)
+
             parameters.update_params(softlimits, collisions, time_passed)
+        else:
+            if op_mode.set_limits.is_set() is False:
+                setLimits(hardlimits, pvs)
 
         if any(collisions):
             logging.debug("Collisions on %s", [i for i in np.where(collisions)[0]])
-            for moving, pv in zip(ismoving, pvs):
-                if moving:
-                    #set_pv(pv + '.STOP', 1)
-                    pass
+            if op_mode.auto_stop.is_set():
+                for moving, pv in zip(ismoving, pvs):
+                    if moving:
+                        set_pv(pv + '.STOP', 1)
 
-        if close.is_set():
+        if op_mode.close.is_set():
             setLimits(hardlimits, pvs)
             return
 
