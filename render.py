@@ -24,6 +24,7 @@ from gameobjects.matrix44 import Matrix44
 from gameobjects.vector3 import Vector3
 
 from monitor import DummyMonitor
+from move import move_all
 
 
 # This is super greedy on resources!! Can definitely optimise a ton!
@@ -168,6 +169,7 @@ class Renderer(threading.Thread):
 
         for geometry in self.geometries:
             geometry.fill = True
+            pass
 
         self.colors = colors
         self.monitors = monitors
@@ -341,8 +343,7 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
     # Clear the screen, and z-buffer
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-    for move, geometry in zip(moves, geometries):
-        move(geometry, monitors)
+    move_all(monitors, geometries, moves)
 
     # Render!
     for geometry, collided in zip(geometries, collisions):

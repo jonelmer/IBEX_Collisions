@@ -1,16 +1,18 @@
+import logging
+import threading
+from time import sleep, time
+
 import numpy as np
 import ode
 import pygame
 from OpenGL.GL import *
 from genie_python.genie_startup import *
-from time import sleep, time
 
 import config
+import render
 from gameobjects.vector3 import *
 from monitor import Monitor, DummyMonitor
-import render
-import threading
-import logging
+from move import move_all
 
 
 def rotation_matrix(rx=0, ry=0, rz=0, angle=None):
@@ -359,8 +361,7 @@ def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0
 
 
     # Restore positions
-    for move, geometry in zip(moves, geometries):
-        move(geometry, monitors)
+    move_all(monitors, geometries, moves)
 
     return softlimits
 
@@ -372,8 +373,7 @@ def seek(sequence, dummies, i, moves, geometries, ignore):
         step = c
         dummies[i].update(step)
         # Move to position
-        for move, geometry in zip(moves, geometries):
-            move(geometry, dummies)
+        move_all(dummies, geometries, moves)
         # Check for collisions
         collisions = collide(geometries, ignore)
         if any(collisions):
@@ -455,9 +455,7 @@ def run():
         frozen = [DummyMonitor(monitor.value()) for monitor in monitors]
         #frozen = monitors
 
-        for move, geometry in zip(moves, geometries):
-            move(geometry, frozen)
-
+        move_all(frozen, geometries, moves)
         # Check for collisions
         collisions = collide(geometries, ignore)
 
@@ -490,7 +488,6 @@ def run():
             return
 
         sleep(0.01)
-
 
 
 run()

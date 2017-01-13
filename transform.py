@@ -9,33 +9,50 @@ class Transformation(object):
     def identity(self):
         return np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 
-    def rotate(self, rx=0, ry=0, rz=0):
+    def rotate(self, rx=0, ry=0, rz=0, forward=True):
         if rx is not 0:
             rotate = np.array([[1,       0,        0, 0],
                                [0, cos(rx), -sin(rx), 0],
                                [0, sin(rx),  cos(rx), 0],
                                [0,       0,        0, 1]])
-            self.matrix = np.dot(rotate, self.matrix)
+            if forward:
+                self.matrix = np.dot(rotate, self.matrix)
+            else:
+                self.matrix = np.dot(self.matrix, rotate)
 
         if ry is not 0:
             rotate = np.array([[cos(ry), 0, -sin(ry), 0],
                                [      0, 1,        0, 0],
                                [sin(ry), 0,  cos(ry), 0],
                                [      0, 0,        0, 1]])
-            self.matrix = np.dot(rotate, self.matrix)
+            if forward:
+                self.matrix = np.dot(rotate, self.matrix)
+            else:
+                self.matrix = np.dot(self.matrix, rotate)
 
         if rz is not 0:
             rotate = np.array([[cos(rz), -sin(rz), 0, 0],
                                [sin(rz),  cos(rz), 0, 0],
                                [      0,        0, 1, 0],
                                [      0,        0, 0, 1]])
-            self.matrix = np.dot(rotate, self.matrix)
+            if forward:
+                self.matrix = np.dot(rotate, self.matrix)
+            else:
+                self.matrix = np.dot(self.matrix, rotate)
 
-    def translate(self, x=0, y=0, z=0):
-        self.matrix = np.dot(np.array([[1, 0, 0, x],
+    def translate(self, x=0, y=0, z=0, forward=True):
+        if forward:
+            self.matrix = np.dot(
+                             np.array([[1, 0, 0, x],
                                        [0, 1, 0, y],
                                        [0, 0, 1, z],
                                        [0, 0, 0, 1]]), self.matrix)
+        else:
+            self.matrix = np.dot(self.matrix,
+                             np.array([[1, 0, 0, x],
+                                       [0, 1, 0, y],
+                                       [0, 0, 1, z],
+                                       [0, 0, 0, 1]]))
 
     def scale(self, x=1, y=1, z=1):
         self.matrix = np.dot(np.array([[x, 0, 0, 0],
