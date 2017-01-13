@@ -2,26 +2,22 @@ from math import radians
 from transform import Transformation
 
 # Config happens here:
-
 colors = [(0.6, 0.6, 0.6), (1, 0, 1), (1, 1, 0), (0, 1, 1), (0, 1, 0), (1, 0.5, 0), (0.2, 0.2, 1), (0.2, 0.2, 1), (0, 1, 0), (1, 1, 1), (1, 1, 1)]
 
 # Define the geometry of the system
-geometries = [
-              dict(size=(1000.0, 1000.0, 630.0)),
-              dict(size=(700.0, 700.0, 165.0)),
-              dict(size=(700.0, 700.0, 120.0)),
-              dict(size=(700.0, 700.0, 200.0)),
-              dict(size=(700.0, 700.0, 120.0)),
+z_stage =   dict(size=(1000.0, 1000.0, 630.0))
+rot_stage = dict(size=(700.0, 700.0, 165.0))
+bot_arc =   dict(size=(700.0, 700.0, 120.0))
+top_arc =   dict(size=(700.0, 700.0, 120.0))
+fine_z =    dict(size=(700.0, 700.0, 120.0))
+y_stage =   dict(size=(700.0,  250.0, 20.0))
+x_stage =   dict(size=(250.0,  250.0, 20.0))
+sample =    dict(size=(150.0, 150.0, 150.0))
+y_base =    dict(size=(700.0, 1000.0, 50.0))
+snout =     dict(position=(300, 0, 0), size=(500, 70, 70))
+slits =     dict(position=(-450, 0, 0), size=(100, 300, 300))
 
-              dict(size=(700.0,  250.0, 20.0)),
-              dict(size=(250.0,  250.0, 20.0)),
-
-              dict(size=(150.0, 150.0, 150.0)),
-              dict(size=(700.0, 1000.0, 50.0)),
-
-              dict(position=(300, 0, 0), size=(500, 70, 70)),
-              dict(position=(-450, 0, 0), size=(100, 300, 300))
-              ]
+geometries = [z_stage, rot_stage, bot_arc, top_arc, fine_z, y_stage, x_stage, sample, y_base, snout, slits]
 
 # List of pairs to ignore
 ignore = []
@@ -33,135 +29,108 @@ centre_arc = 750
 beam_ref = 1625
 
 # Generate move functions
-moves = []
 
 
 def stationary(*args):
     pass
 
 # Z stage
-def move_z(geometry, monitors):
+def move_z_stage(monitors):
     t = Transformation()
-    t.translate(z=-beam_ref + (monitors[0].value() + geometries[0]['size'][2]) / 2)
-    geometry.setTransform(t)
 
-    geometry.size[2] = monitors[0].value() + geometries[0]['size'][2]
+    size = monitors[0].value() + z_stage['size'][2]
 
+    t.translate(z=-beam_ref + size / 2)
 
-moves.append(move_z)
+    return t, dict(z=size)
+
 
 # Rotation
-def move_rot(geometry, monitors):
+def move_rot_stage(monitors):
     t = Transformation()
-    t.translate(z=-beam_ref + monitors[0].value() + geometries[0]['size'][2] + geometries[1]['size'][2]/2)
+    t.translate(z=-beam_ref + monitors[0].value() + z_stage['size'][2] + rot_stage['size'][2]/2)
     t.rotate(rz=radians(monitors[1].value()))
-    geometry.setTransform(t)
 
+    return t
 
-moves.append(move_rot)
 
 # Bottom arc
-def move_bottom_arc(geometry, monitors):
+def move_bot_arc(monitors):
     t = Transformation()
 
-    t.translate(z=-centre_arc - (geometries[2]['size'][2]/2 + geometries[3]['size'][2]))
+    t.translate(z=-centre_arc - (bot_arc['size'][2]/2 + top_arc['size'][2]))
     t.rotate(ry=radians(monitors[2].value()))
-    t.translate(z= centre_arc + (geometries[2]['size'][2]/2 + geometries[3]['size'][2]))
+    t.translate(z= centre_arc + (bot_arc['size'][2]/2 + top_arc['size'][2]))
 
-    t.translate(z=-beam_ref + monitors[0].value() + geometries[0]['size'][2] + geometries[1]['size'][2] + geometries[2]['size'][2] / 2)
+    t.translate(z=-beam_ref + monitors[0].value() + z_stage['size'][2] + rot_stage['size'][2] + bot_arc['size'][2] / 2)
     t.rotate(rz=radians(monitors[1].value()))
-    geometry.setTransform(t)
 
     return t
 
-
-moves.append(move_bottom_arc)
 
 # Top arc
-def move_top_arc(geometry, monitors):
-    t = move_bottom_arc(geometry, monitors)
+def move_top_arc(monitors):
+    t = move_bot_arc(monitors)
 
-    t.translate(z=+(centre_arc + geometries[3]['size'][2] / 2), forward=False)
+    t.translate(z=+(centre_arc + top_arc['size'][2] / 2), forward=False)
     t.rotate(rx=radians(monitors[3].value()), forward=False)
-    t.translate(z=-(centre_arc + geometries[3]['size'][2] / 2), forward=False)
+    t.translate(z=-(centre_arc + top_arc['size'][2] / 2), forward=False)
 
-    t.translate(z=geometries[3]['size'][2]/2 + geometries[2]['size'][2] / 2, forward=False)
-
-    geometry.setTransform(t)
+    t.translate(z=top_arc['size'][2]/2 + bot_arc['size'][2] / 2, forward=False)
 
     return t
 
-
-moves.append(move_top_arc)
 
 # Fine Z
-def move_fine_z(geometry, monitors):
-    t = move_top_arc(geometry, monitors)
+def move_fine_z(monitors):
+    t = move_top_arc(monitors)
 
-    size = monitors[4].value() + geometries[4]['size'][2]
-    geometry.size[2] = size
+    size = monitors[4].value() + fine_z['size'][2]
 
-    t.translate(z=size/2 + geometries[3]['size'][2]/2, forward=False)
+    t.translate(z=size/2 + top_arc['size'][2]/2, forward=False)
 
-    geometry.setTransform(t)
-
-    return t
-
-moves.append(move_fine_z)
+    return t, dict(z=size)
 
 
 # Base of Y stage (top of fine Z)
-def move_y_base(geometry, monitors):
-    t = move_top_arc(geometry, monitors)
+def move_y_base(monitors):
+    t = move_top_arc(monitors)
 
-    size = monitors[4].value() + geometries[4]['size'][2]
+    size = monitors[4].value() + fine_z['size'][2]
 
-    t.translate(z=size + geometries[3]['size'][2]/2 + geometries[8]['size'][2]/2, forward=False)
-
-    geometry.setTransform(t)
+    t.translate(z=size + top_arc['size'][2]/2 + y_base['size'][2]/2, forward=False)
 
     return t
 
 
 # Y stage
-def move_y_stage(geometry, monitors):
-    t = move_y_base(geometry, monitors)
+def move_y_stage(monitors):
+    t = move_y_base(monitors)
 
-    t.translate(y=monitors[5].value(), z=geometries[8]['size'][2]/2 + geometries[5]['size'][2]/2, forward=False)
-
-    geometry.setTransform(t)
+    t.translate(y=monitors[5].value(), z=y_base['size'][2]/2 + y_stage['size'][2]/2, forward=False)
 
     return t
 
-moves.append(move_y_stage)
 
 # X stage
-def move_x_stage(geometry, monitors):
-    t = move_y_stage(geometry, monitors)
+def move_x_stage(monitors):
+    t = move_y_stage(monitors)
 
-    t.translate(x=monitors[6].value(), z=geometries[5]['size'][2]/2 + geometries[6]['size'][2]/2, forward=False)
-
-    geometry.setTransform(t)
+    t.translate(x=monitors[6].value(), z=y_stage['size'][2]/2 + x_stage['size'][2]/2, forward=False)
 
     return t
-
-
-moves.append(move_x_stage)
 
 # Sample
-def move_sample(geometry, monitors):
-    t = move_x_stage(geometry, monitors)
+def move_sample(monitors):
+    t = move_x_stage(monitors)
 
-    t.translate(z=geometries[6]['size'][2]/2 + geometries[7]['size'][2]/2, forward=False)
-
-    geometry.setTransform(t)
+    t.translate(z=x_stage['size'][2]/2 + sample['size'][2]/2, forward=False)
 
     return t
 
 
-moves.append(move_sample)
-
-moves.append(move_y_base)
+moves = [move_z_stage, move_rot_stage, move_bot_arc, move_top_arc, move_fine_z, move_y_stage, move_x_stage, move_sample,
+         move_y_base]
 
 # Attach monitors to readbacks
 pvs = ["TE:NDW1720:MOT:MTR0201",

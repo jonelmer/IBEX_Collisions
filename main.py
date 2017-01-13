@@ -62,12 +62,13 @@ class GeometryBox(object):
                 (0.5, 0.5, -0.5),
                 (-0.5, 0.5, -0.5)]
 
-    normals = [(0.0, 0.0, +1.0),  # front
-               (0.0, 0.0, -1.0),  # back
-               (+1.0, 0.0, 0.0),  # right
-               (-1.0, 0.0, 0.0),  # left
-               (0.0, +1.0, 0.0),  # top
-               (0.0, -1.0, 0.0)]  # bottom
+    normals = [(0.0, 0.0, -1.0),  # top
+               (0.0, 0.0, +1.0),  # bot
+               (0, +1.0, 0.0),  # front
+               (0, -1.0, 0.0),  # back
+               (+1.0, 0, 0.0),  # left
+               (-1.0, 0, 0.0),  # right
+               ]
 
     vertex_indices = [(0, 1, 2, 3),  # front
                       (4, 5, 6, 7),  # back
@@ -103,15 +104,16 @@ class GeometryBox(object):
 
         x, y, z = self.geom.getPosition()
         R = self.geom.getRotation()
-        rot = [[R[0], R[3], R[6], 0.],
-               [R[1], R[4], R[7], 0.],
-               [R[2], R[5], R[8], 0.],
-               [x, y, z, 1.0]]
-        rot = np.array(rot)
 
         if self.fill:
             # Draw all 6 faces of the cube
             glBegin(GL_QUADS)
+
+            rot = [[R[0], R[3], R[6], 0.],
+                   [R[1], R[4], R[7], 0.],
+                   [R[2], R[5], R[8], 0.],
+                   [x, y, z, 1.0]]
+            rot = np.array(rot)
 
             for face_no in xrange(self.num_faces):
                 normal = np.array(self.normals[face_no] + (1, )).T
@@ -125,6 +127,12 @@ class GeometryBox(object):
         else:
             # Draw all 12 edges of the cube
             glBegin(GL_LINES)
+
+            rot = [[R[0], R[3], R[6], 0.],
+                   [R[1], R[4], R[7], 0.],
+                   [R[2], R[5], R[8], 0.],
+                   [x, y, z, 1.0]]
+            rot = np.array(rot)
 
             for edge_no in xrange(self.num_edges):
                 vertex_index = self.edge_indices[edge_no]
@@ -142,6 +150,14 @@ class GeometryBox(object):
         pos = self.geom.getPosition()
         pos = tuple([pos[0] + x, pos[1] + y, pos[2] + z])
         self.geom.setPosition(pos)
+
+    def setSize(self, x=None, y=None, z=None):
+        if x is not None:
+            self.size[0] = x
+        if y is not None:
+            self.size[1] = y
+        if z is not None:
+            self.size[2] = z
 
     def setPosition(self, x=None, y=None, z=None, coords=None):
         if coords is not None:

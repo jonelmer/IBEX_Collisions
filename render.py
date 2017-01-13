@@ -20,6 +20,7 @@ from pygame.constants import HWSURFACE, OPENGL, DOUBLEBUF, QUIT, KEYUP, K_ESCAPE
 import threading
 import logging
 
+import numpy as np
 from gameobjects.matrix44 import Matrix44
 from gameobjects.vector3 import Vector3
 
@@ -152,9 +153,10 @@ def glinit():
     glLight(GL_LIGHT0, GL_POSITION, [0, 0, 0])
 
     glLight(GL_LIGHT0, GL_AMBIENT, (.1, .1, .1, 1.))
-    glLight(GL_LIGHT0, GL_DIFFUSE, (1., 1., 1., 1.))
+    glLight(GL_LIGHT0, GL_DIFFUSE, (1.0, 1.0, 1.0, 1.))
 
-    glMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, (0.5, 0.5, 0.5, 1.0))
+    glMaterial(GL_FRONT, GL_AMBIENT, (0.1, 0.1, 0.1, 1.0))
+    glMaterial(GL_FRONT, GL_DIFFUSE, (1.0, 1.0, 1.0, 1.0))
 
     # Clear the screen, and z-buffer
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -273,12 +275,22 @@ def check_controls(close):
     up = movement * time_passed_seconds
     camera_matrix.translate += up
 
-    # Upload the inverse camera matrix to OpenGL
-    glLoadMatrixd(camera_matrix.get_inverse().to_opengl())
+    glPushMatrix()
 
     # Light must be transformed as well
-    light = camera_matrix.transform([0, 0, 0])
-    glLight(GL_LIGHT0, GL_POSITION, light)
+    cam = np.array(list(camera_matrix)).reshape(4, 4)
+    print cam
+
+    #light = camera_matrix.transform([0, 0, 1000])
+    #light = np.dot(cam, np.array([0, 0, 0, 1]).T).T
+    light = cam[3][0:3]
+    print light
+    glLight(GL_LIGHT0, GL_POSITION, [ -700., -1400.,   500.])
+
+    glPopMatrix()
+
+    # Upload the inverse camera matrix to OpenGL
+    glLoadMatrixd(camera_matrix.get_inverse().to_opengl())
 
 
 def square(x, y, w=50, h=50, color=(1, 0, 0)):
@@ -344,7 +356,7 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
     move_all(monitors, geometries, moves)
-
+    glEnable(GL_LIGHTING)
     # Render!
     for geometry, collided in zip(geometries, collisions):
         if collided:
@@ -354,8 +366,8 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
 
     #grid.render()
 
-    # Set the normal so that the hud is lit nicely
-    glNormal3dv((0, 0, 1))
+    # Disable lighting so the hud is fully illuminated
+    glDisable(GL_LIGHTING)
 
     # Display the status icon
     if any(collisions):
