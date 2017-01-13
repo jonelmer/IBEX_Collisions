@@ -62,12 +62,12 @@ class GeometryBox(object):
                 (0.5, 0.5, -0.5),
                 (-0.5, 0.5, -0.5)]
 
-    normals = [(0.0, 0.0, -1.0),  # top
-               (0.0, 0.0, +1.0),  # bot
-               (0, +1.0, 0.0),  # front
-               (0, -1.0, 0.0),  # back
-               (+1.0, 0, 0.0),  # left
-               (-1.0, 0, 0.0),  # right
+    normals = [(0.0, 0.0, +1.0),  # top
+               (0.0, 0.0, -1.0),  # bot
+               (0.0, +1.0, 0.0),  # front
+               (0.0, -1.0, 0.0),  # back
+               (+1.0, 0.0, 0.0),  # left
+               (-1.0, 0.0, 0.0),  # right
                ]
 
     vertex_indices = [(0, 1, 2, 3),  # front
@@ -116,8 +116,9 @@ class GeometryBox(object):
             rot = np.array(rot)
 
             for face_no in xrange(self.num_faces):
-                normal = np.array(self.normals[face_no] + (1, )).T
-                glNormal3dv(np.dot(normal, rot.T)[0:3])
+                normal = np.array(self.normals[face_no]).T
+                rotated = np.dot(normal, rot[:3, :3].T)
+                glNormal3dv(rotated)
 
                 for i in self.vertex_indices[face_no]:
                     point = np.array([vertices[i][0], vertices[i][1], vertices[i][2], 1]).T

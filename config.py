@@ -14,8 +14,8 @@ y_stage =   dict(size=(700.0,  250.0, 20.0))
 x_stage =   dict(size=(250.0,  250.0, 20.0))
 sample =    dict(size=(150.0, 150.0, 150.0))
 y_base =    dict(size=(700.0, 1000.0, 50.0))
-snout =     dict(position=(300, 0, 0), size=(500, 70, 70))
-slits =     dict(position=(-450, 0, 0), size=(100, 300, 300))
+snout =     dict(position=(-300, 0, 0), size=(500, 70, 70))
+slits =     dict(position=(450, 0, 0), size=(100, 300, 300))
 
 geometries = [z_stage, rot_stage, bot_arc, top_arc, fine_z, y_stage, x_stage, sample, y_base, snout, slits]
 

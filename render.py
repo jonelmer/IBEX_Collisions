@@ -275,19 +275,8 @@ def check_controls(close):
     up = movement * time_passed_seconds
     camera_matrix.translate += up
 
-    glPushMatrix()
-
     # Light must be transformed as well
-    cam = np.array(list(camera_matrix)).reshape(4, 4)
-    print cam
-
-    #light = camera_matrix.transform([0, 0, 1000])
-    #light = np.dot(cam, np.array([0, 0, 0, 1]).T).T
-    light = cam[3][0:3]
-    print light
-    glLight(GL_LIGHT0, GL_POSITION, [ -700., -1400.,   500.])
-
-    glPopMatrix()
+    glLight(GL_LIGHT0, GL_POSITION, (0.0, 0.0, 1.0, 1.0))
 
     # Upload the inverse camera matrix to OpenGL
     glLoadMatrixd(camera_matrix.get_inverse().to_opengl())
@@ -355,8 +344,15 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
     # Clear the screen, and z-buffer
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
+    glColor((1, 0, 0))
+    glBegin(GL_QUADS)
+    glVertex((10, 10, 0))
+    glVertex((10, -10, 0))
+    glVertex((-10, -10, 0))
+    glVertex((-10, 10, 0))
+    glEnd()
+
     move_all(monitors, geometries, moves)
-    glEnable(GL_LIGHTING)
     # Render!
     for geometry, collided in zip(geometries, collisions):
         if collided:
@@ -366,8 +362,8 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
 
     #grid.render()
 
-    # Disable lighting so the hud is fully illuminated
-    glDisable(GL_LIGHTING)
+    # Set the HUD normal to the camera's position - gives us full illumination?
+    glNormal3dv(list(camera_matrix)[12:15])
 
     # Display the status icon
     if any(collisions):
