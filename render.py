@@ -75,7 +75,7 @@ class Grid(object):
 # Camera transform matrix
 def initialise_camera():
     camera_matrix = Matrix44()
-    camera_matrix.translate = (-700, -1400, 1800)
+    camera_matrix.translate = (-700, -1400, 500)
     #camera_matrix.translate = (-10, -25, 20)
     camera_matrix *= Matrix44.xyz_rotation(0, 0, -0.4)
     camera_matrix *= Matrix44.xyz_rotation(0.95, 0, 0)
@@ -109,9 +109,9 @@ camera_matrix = initialise_camera()
 
 # Initialize speeds and directions for camera
 rotation_direction = Vector3()
-rotation_speed = radians(90.0)
+rotation_speed = 0.7
 movement_direction = Vector3()
-movement_speed = 50.0
+movement_speed = 250.0
 
 # Make a grid
 grid = Grid(scale=1, position=(-11, 0, -11), size=(22, 0, 22))
@@ -149,6 +149,9 @@ def glinit():
     glEnable(GL_LIGHT0)
 
     glLight(GL_LIGHT0, GL_POSITION, [0, 0, 0])
+
+    glLight(GL_LIGHT0, GL_AMBIENT, (.1, .1, .1, 1.))
+    glLight(GL_LIGHT0, GL_DIFFUSE, (1., 1., 1., 1.))
 
     glMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, (0.5, 0.5, 0.5, 1.0))
 
@@ -242,8 +245,8 @@ def check_controls(close):
         autoRestart = False
     if pressed[K_SPACE]:
         camera_matrix = initialise_camera()
-    #if pressed[K_RETURN]:
-    #    setLimits(config.hardlimits, config.pvs)
+    # if pressed[K_RETURN]:
+    #     setLimits(config.hardlimits, config.pvs)
 
     # Calculate rotation matrix and multiply by camera matrix
     rotation = rotation_direction * rotation_speed * time_passed_seconds
@@ -378,8 +381,8 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
         text(70, 35, "Auto-restart off")
 
     for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
-        text(80 * 1, 70 + (30 * i), "%.2f" % monitor.value(), colors[i % len(colors)], align="right")
-        text(80 * 2, 70 + (30 * i), "%.2f" % limit[0], colors[i % len(colors)], align="right")
+        text(80 * 1, 70 + (30 * i), "%.2f" % limit[0], colors[i % len(colors)], align="right")
+        text(80 * 2, 70 + (30 * i), "%.2f" % monitor.value(), colors[i % len(colors)], align="right")
         text(80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i % len(colors)], align="right")
 
     if duration > 0:
@@ -400,7 +403,7 @@ def draw(parameters, geometries, colors, monitors, pvs, moves):
     # Show the screen
     pygame.display.flip()
 
-    pygame.time.wait(10)
+    pygame.time.wait(max(50 - time_passed, 0))
 
 
 def loop(parameters, close, args):
