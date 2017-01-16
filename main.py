@@ -4,7 +4,6 @@ from time import sleep, time
 
 import numpy as np
 import ode
-import pygame
 from OpenGL.GL import *
 from genie_python.genie_startup import *
 
@@ -15,28 +14,9 @@ from monitor import Monitor, DummyMonitor
 from move import move_all
 
 
-def rotation_matrix(rx=0, ry=0, rz=0, angle=None):
-    if angle:
-        rz, ry, rz = angle
-    # Can check if we are only rotating about one axis, then only do that rotation?
-    #R = np.identity(3) # not very quick!
-    R = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-
-    if rx is not 0:
-        R = np.dot(np.array([[1, 0, 0], [0, cos(rx), -sin(rx)], [0, sin(rx), cos(rx)]]), R)
-
-    if ry is not 0:
-        R = np.dot(np.array([[cos(ry), 0, -sin(ry)], [0, 1, 0], [sin(ry), 0, cos(ry)]]), R)
-
-    if rz is not 0:
-        R = np.dot(np.array([[cos(rz), -sin(rz), 0], [sin(rz), cos(rz), 0], [0, 0, 1]]), R)
-
-    return R
-
-
 class GeometryBox(object):
-    def __init__(self, space, position=(0, 0, 0), size=(1, 1, 1), color=(1, 1, 1), origin=(0, 0, 0), angle=(0, 0, 0), oversize=1):
-        # type: (object, object, object, object, object, object, object) -> object
+    def __init__(self, space, position=(0, 0, 0), size=(1, 1, 1), color=(1, 1, 1),
+                 origin=(0, 0, 0), angle=(0, 0, 0), oversize=1):
         # Set parameters for drawing the body
         self.color = color
         self.size = list(size)
@@ -90,8 +70,9 @@ class GeometryBox(object):
                     (2, 6),
                     (3, 7)]
 
+    # Render the geometry - can supply color to override the geometry's own color e.g. make it red when collided
     def render(self, color=None):
-
+        # Set the color for rendering
         if color:
             glColor(color)
         else:
@@ -100,59 +81,60 @@ class GeometryBox(object):
         # Adjust all the vertices so that the cube is at self.position
         vertices = self.vertices
         vertices = [tuple(Vector3(v) * self.size) for v in vertices]
-        # vertices = [tuple(Vector3(v) + self.body.getPosition()) for v in vertices]
 
+        # Get the position and rotation of the geometry
         x, y, z = self.geom.getPosition()
-        R = self.geom.getRotation()
+        r = self.geom.getRotation()
 
+        # Get the transformation matrix for the geometry
+        rot = [[r[0], r[3], r[6], 0.],
+               [r[1], r[4], r[7], 0.],
+               [r[2], r[5], r[8], 0.],
+               [x, y, z, 1.0]]
+        # And put it into an numpy array
+        rot = np.array(rot)
+
+        # If we want a filled in cube:
         if self.fill:
-            # Draw all 6 faces of the cube
+            # Start drawing quads
             glBegin(GL_QUADS)
 
-            rot = [[R[0], R[3], R[6], 0.],
-                   [R[1], R[4], R[7], 0.],
-                   [R[2], R[5], R[8], 0.],
-                   [x, y, z, 1.0]]
-            rot = np.array(rot)
-
+            # Draw all 6 faces of the cube
             for face_no in xrange(self.num_faces):
+                # Calculate and apply the normal - for lighting
                 normal = np.array(self.normals[face_no]).T
                 rotated = np.dot(normal, rot[:3, :3].T)
                 glNormal3dv(rotated)
 
+                # Calculate and draw each vertex
                 for i in self.vertex_indices[face_no]:
                     point = np.array([vertices[i][0], vertices[i][1], vertices[i][2], 1]).T
                     glVertex(np.dot(point, rot))
 
+            # Stop drawing quads
             glEnd()
+
+        # We want a wire frame:
         else:
-            # Draw all 12 edges of the cube
+            # Start drawing lines
             glBegin(GL_LINES)
 
-            rot = [[R[0], R[3], R[6], 0.],
-                   [R[1], R[4], R[7], 0.],
-                   [R[2], R[5], R[8], 0.],
-                   [x, y, z, 1.0]]
-            rot = np.array(rot)
-
+            # Draw all 12 edges of the cube
             for edge_no in xrange(self.num_edges):
+                # Get the vertices for each edge
                 vertex_index = self.edge_indices[edge_no]
 
+                # Calculate and draw each vertex
                 for i in vertex_index:
                     point = np.array([vertices[i][0], vertices[i][1], vertices[i][2], 1]).T
-                    # print rot
-                    # print np.dot(point, rot)
-
                     glVertex(np.dot(point, rot))
-                    # glVertex(vertices[i])
+
+            # Stop drawing lines
             glEnd()
 
-    def move(self, x=0, y=0, z=0):
-        pos = self.geom.getPosition()
-        pos = tuple([pos[0] + x, pos[1] + y, pos[2] + z])
-        self.geom.setPosition(pos)
-
+    # Set the size of the ODE geometry
     def setSize(self, x=None, y=None, z=None):
+        # Only need to set the size of dimensions supplied
         if x is not None:
             self.size[0] = x
         if y is not None:
@@ -160,87 +142,17 @@ class GeometryBox(object):
         if z is not None:
             self.size[2] = z
 
-    def setPosition(self, x=None, y=None, z=None, coords=None):
-        if coords is not None:
-            x, y, z = coords
-        pos = list(self.geom.getPosition())
-        if x is not None:
-            pos[0] = x
-        if y is not None:
-            pos[1] = y
-        if z is not None:
-            pos[2] = z
-        self.geom.setPosition(pos)
-
-    def getPosition(self):
-        return self.geom.getPosition()
-
-    def setRotation(self, tx=0, ty=0, tz=0, origin=None, angles=None):
-        if angles:
-            tx, ty, tx = angles
-
-        # Don't need to calculate if the angles haven't changed!! Saves a lot of effort!!
-        if (tx, ty, tz) is self.angles:
-            return
-
-        rx, ry, rz = [r - a for a, r in zip(self.angles, (tx, ty, tz))]
-
-        if origin is None: origin = self.origin
-
-        # Calculate the new position
-        pos = list(self.geom.getPosition())
-        pos = [p - o for p, o in zip(pos, origin)]
-        rot = rotation_matrix(rx, ry, rz)
-        pos = np.dot(pos, rot)
-        pos = [p + o for p, o in zip(pos, origin)]
-        self.geom.setPosition(pos)
-
-        # Update the rotation
-        self.angles = (tx, ty, tz)
-        self.geom.setRotation(rotation_matrix(angle=self.angles).T.reshape(9))
-
-    def getRotation(self):
-        return self.angles
-
+    # Set the transform for the geometry
     def setTransform(self, transform):
+        # Get the rotation and position elements from the transformation matrix
         rot, pos = transform.split()
 
+        # Reshape the rotation matrix into a ODE friendly format
         rot = np.reshape(rot.T, 9, 1)
 
+        # Apply the translation and rotation to the ODE geometry
         self.geom.setPosition(pos)
         self.geom.setRotation(rot)
-
-
-class Counter(object):
-    def __init__(self):
-        self.count = 0
-
-    def increment(self):
-        self.count += 1
-        return self.count
-
-    def reset(self):
-        self.count = 0
-
-
-def collisionCB(pairs, geom1, geom2):
-    contacts = ode.collide(geom1, geom2)
-    if contacts:
-        pairs.append([geom1, geom2])
-
-
-def limitCB(counter, geom1, geom2):
-    contacts = ode.collide(geom1, geom2)
-    if contacts:
-        counter.increment()
-
-
-def sequencer(start, stop, step):
-    i = 0
-    count = (stop-start)/step
-    while i <= count:
-        yield start + step * i
-        i += 1
 
 
 # Do coarse and fine searches for limits in both forward and backward directions
