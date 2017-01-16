@@ -211,54 +211,6 @@ class GeometryBox(object):
         self.geom.setRotation(rot)
 
 
-#### Not needed but has some tricks in it
-class Map(object):
-    def __init__(self):
-
-        map_surface = pygame.image.load("map.png")
-        map_surface.lock()
-
-        w, h = map_surface.get_size()
-
-        self.cubes = []
-
-        # Create a cube for every non-white pixel
-        for y in range(h):
-            for x in range(w):
-
-                r, g, b, a = map_surface.get_at((x, y))
-
-                if (r, g, b) != (255, 255, 255):
-                    gl_col = (r / 255.0, g / 255.0, b / 255.0)
-                    position = (float(x), 0.0, float(y))
-                    cube = GeometryBox(position, gl_col)
-                    self.cubes.append(cube)
-
-        map_surface.unlock()
-
-        self.display_list = None
-
-    def render(self):
-
-        if self.display_list is None:
-
-            # Create a display list
-            self.display_list = glGenLists(1)
-            glNewList(self.display_list, GL_COMPILE)
-
-            # Draw the cubes
-            for cube in self.cubes:
-                cube.render()
-
-            # End the display list
-            glEndList()
-
-        else:
-
-            # Render the display list
-            glCallList(self.display_list)
-
-
 class Counter(object):
     def __init__(self):
         self.count = 0
@@ -422,7 +374,7 @@ def setLimits(limits, pvs):
         set_pv(pv + '.DHLM', np.max(limit))
 
 
-class State(object):
+class OperatingMode(object):
     def __init__(self):
         self.close = threading.Event()
         self.set_limits = threading.Event()
@@ -431,25 +383,25 @@ class State(object):
 
 def run():
 
-    # Colors!!
+    # Load config:
     colors = config.colors
-
     moves = config.moves
     ignore = config.ignore
     pvs = config.pvs
-    hardlimits = config.hardlimits
+    config_limits = config.hardlimits
 
-    # Create a space object for the live world
+    # Create space objects for the live and rendered world
     space = ode.Space()
+    renderspace = ode.Space()
 
     # Create and populate lists of geometries
     geometries = []
     rendergeometries = []
     for i, geometry in enumerate(config.geometries):
         geometries.append(GeometryBox(space, color=colors[i % len(colors)], **geometry))
-        rendergeometries.append(GeometryBox(space, color=colors[i % len(colors)], **geometry))
+        rendergeometries.append(GeometryBox(renderspace, color=colors[i % len(colors)], **geometry))
 
-    # Create and populate a list of monitors
+    # Create and populate two lists of monitors
     monitors = []
     ismoving = []
     for pv in pvs:
@@ -461,66 +413,91 @@ def run():
         moving.start()
         ismoving.append(moving)
 
-    op_mode = State()
+    # Create a shared operating mode object to control the main thread
+    op_mode = OperatingMode()
+    # Set the default behaviour to set_limits as calculated, and auto_stop on collision
     op_mode.set_limits.set()
     op_mode.auto_stop.set()
 
+    # Create a shared render parameter object to update the render thread
     parameters = render.RenderParams()
+
+    # Initialise the render thread, and set it to daemon - won't prevent the main thread from exiting
     renderer = render.Renderer(parameters, rendergeometries, colors, monitors, pvs, moves, op_mode)
     renderer.daemon = True
 
-    collisions = collide(geometries, ignore)
+    # Need to know if this is the first execution of the main loop
+    first_run = True
 
-    softlimits = seekLimits(geometries, ignore, moves, monitors, ismoving, hardlimits, coarse=10.0, fine=0.1)
-    setLimits(softlimits, pvs)
-
-    parameters.update_params(softlimits, collisions, 0)
-    renderer.start()
-
+    # Main loop
     while True:
 
+        # Freeze the positions of our current monitors by creating some dummies
+        # This stops the threads from trying to reading each monitor sequentially, and holding each other up
         frozen = [DummyMonitor(monitor.value()) for monitor in monitors]
-        #frozen = monitors
 
+        # Execute the move
         move_all(frozen, geometries, moves)
+
         # Check for collisions
         collisions = collide(geometries, ignore)
 
+        # Check if there have been any changes to the .MOVN monitors
         fresh = any([m.fresh() for m in ismoving])
+        # Check if any of the motors monitors are moving
         moving = any([m.value() for m in ismoving])
 
-        if fresh or moving:
+        if fresh or moving or first_run:
+            # Start timing for diagnostics
             time_passed = time()
 
             # Seek the correct limit values
-            softlimits = seekLimits(geometries, ignore, moves, frozen, ismoving, hardlimits, coarse=10.0, fine=0.1)
+            dynamic_limits = seekLimits(geometries, ignore, moves, frozen, ismoving, config_limits, coarse=10.0, fine=0.1)
 
-            logging.debug("New limits are " + str(softlimits))
-
+            # Calculate and log the time taken to calculate
             time_passed = (time() - time_passed) * 1000
             logging.debug("Calculated limits in %d", time_passed)
 
+            # Log the new limits
+            logging.debug("New limits are " + str(dynamic_limits))
+
+            # Set the limits according to the set_limits operating mode
             if op_mode.set_limits.is_set():
-                setLimits(softlimits, pvs)
+                # Apply the calculated limits
+                setLimits(dynamic_limits, pvs)
             else:
-                setLimits(hardlimits, pvs)
+                # Restore the configuration limits
+                setLimits(config_limits, pvs)
 
-            parameters.update_params(softlimits, collisions, time_passed)
+            # Update the render thread parameters
+            parameters.update_params(dynamic_limits, collisions, time_passed)
+
+            # On the first run, start the renderer
+            if first_run:
+                renderer.start()
+                first_run = False
         else:
+            # Restore the configuration limits
             if op_mode.set_limits.is_set() is False:
-                setLimits(hardlimits, pvs)
+                setLimits(config_limits, pvs)
 
+        # If there has been a collision:
         if any(collisions):
+            # Log the collisions
             logging.debug("Collisions on %s", [i for i in np.where(collisions)[0]])
+            # Stop the moving motors based on the operating mode auto_stop
             if op_mode.auto_stop.is_set():
                 for moving, pv in zip(ismoving, pvs):
                     if moving:
                         set_pv(pv + '.STOP', 1)
 
+        # Exit the program
         if op_mode.close.is_set():
-            setLimits(hardlimits, pvs)
+            # Restore the configuration limits
+            setLimits(config_limits, pvs)
             return
 
+        # Give the CPU a break
         sleep(0.01)
 
 

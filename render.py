@@ -425,10 +425,11 @@ def draw(renderer, monitors):
 
 def loop(renderer, monitors):
     check_controls(renderer)
-    if renderer.parameters.stale is False:
+    if renderer.op_mode.close.is_set() is False:
+        if renderer.parameters.stale is False:
 
-        # wait for fresh values??
-        draw(renderer, monitors)
+            # wait for fresh values??
+            draw(renderer, monitors)
 
 
 class RenderParams(object):
