@@ -186,19 +186,19 @@ class Renderer(threading.Thread):
         glinit()
         while self.op_mode.close.is_set() is False:
             frozen = [DummyMonitor(monitor.value()) for monitor in self.monitors]
-            loop(self.parameters, self.op_mode, [self.geometries, self.colors, frozen, self.pvs, self.moves])
+            loop(self, frozen)
 
 
-def check_controls(op_mode):
+def check_controls(renderer):
 
     global camera_matrix, stopMotors, autoRestart, time_passed
 
     for event in pygame.event.get():
         if event.type == QUIT:
-            op_mode.close.set()
+            renderer.op_mode.close.set()
             return
         if event.type == KEYUP and event.key == K_ESCAPE:
-            op_mode.close.set()
+            renderer.op_mode.close.set()
             return
 
     time_passed = clock.tick()
@@ -238,13 +238,13 @@ def check_controls(op_mode):
     elif pressed[K_e]:
         movement_direction.y = +1.0
     if pressed[K_1]:
-        op_mode.auto_stop.set()
+        renderer.op_mode.auto_stop.set()
     elif pressed[K_2]:
-        op_mode.auto_stop.clear()
+        renderer.op_mode.auto_stop.clear()
     if pressed[K_3]:
-        op_mode.set_limits.set()
+        renderer.op_mode.set_limits.set()
     elif pressed[K_4]:
-        op_mode.set_limits.clear()
+        renderer.op_mode.set_limits.clear()
     if pressed[K_SPACE]:
         camera_matrix = initialise_camera()
     # if pressed[K_RETURN]:
@@ -334,8 +334,8 @@ def text(x, y, string, color=(0.4, 0.4, 0.4), align="left"):
     return textSurface.get_width() + x
 
 
-def draw(parameters, op_mode, geometries, colors, monitors, pvs, moves):
-    softlimits, collisions, duration = parameters.get_params()
+def draw(renderer, monitors):
+    softlimits, collisions, duration = renderer.parameters.get_params()
 
     global stopMotors, autoRestart, heartbeat, time_passed
 
@@ -351,9 +351,9 @@ def draw(parameters, op_mode, geometries, colors, monitors, pvs, moves):
     # glVertex((-10, 10, 0))
     # glEnd()
 
-    move_all(monitors, geometries, moves)
+    move_all(monitors, renderer.geometries, renderer.moves)
     # Render!
-    for geometry, collided in zip(geometries, collisions):
+    for geometry, collided in zip(renderer.geometries, collisions):
         if collided:
             geometry.render((0.8, 0, 0))
         else:
@@ -366,7 +366,7 @@ def draw(parameters, op_mode, geometries, colors, monitors, pvs, moves):
 
     # Display the status icon
     if any(collisions):
-        if op_mode.auto_stop.is_set():
+        if renderer.op_mode.auto_stop.is_set():
             # Red
             square(10, 10)
             text(70, 10, "Collision detected!")
@@ -375,8 +375,8 @@ def draw(parameters, op_mode, geometries, colors, monitors, pvs, moves):
             square(10, 10, color=(1, 0.5, 0))
             text(70, 10, "Collision ignored!")
     else:
-        if op_mode.auto_stop.is_set():
-            if op_mode.set_limits.is_set():
+        if renderer.op_mode.auto_stop.is_set():
+            if renderer.op_mode.set_limits.is_set():
                 # Green
                 square(10, 10, color=(0, 1, 0))
             else:
@@ -384,7 +384,7 @@ def draw(parameters, op_mode, geometries, colors, monitors, pvs, moves):
                 square(10, 10, color=(0, 1, 1))
             text(70, 10, "Stop on collision")
         else:
-            if op_mode.set_limits.is_set():
+            if renderer.op_mode.set_limits.is_set():
                 # Yellow
                 square(10, 10, color=(1, 1, 0))
             else:
@@ -392,15 +392,15 @@ def draw(parameters, op_mode, geometries, colors, monitors, pvs, moves):
                 square(10, 10, color=(0, 0, 1))
             text(70, 10, "Ignoring collisions")
 
-    if op_mode.set_limits.is_set():
+    if renderer.op_mode.set_limits.is_set():
         text(70, 35, "Setting limits")
     else:
         text(70, 35, "Not setting limits")
 
     for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
-        text(80 * 1, 70 + (30 * i), "%.2f" % limit[0], colors[i % len(colors)], align="right")
-        text(80 * 2, 70 + (30 * i), "%.2f" % monitor.value(), colors[i % len(colors)], align="right")
-        text(80 * 3, 70 + (30 * i), "%.2f" % limit[1], colors[i % len(colors)], align="right")
+        text(80 * 1, 70 + (30 * i), "%.2f" % limit[0], renderer.colors[i % len(renderer.colors)], align="right")
+        text(80 * 2, 70 + (30 * i), "%.2f" % monitor.value(), renderer.colors[i % len(renderer.colors)], align="right")
+        text(80 * 3, 70 + (30 * i), "%.2f" % limit[1], renderer.colors[i % len(renderer.colors)], align="right")
 
     if duration > 0:
         text(screensize[0]-10, screensize[1]-45, "%.0f" % duration, align="right")
@@ -409,7 +409,7 @@ def draw(parameters, op_mode, geometries, colors, monitors, pvs, moves):
 
     # Show a heartbeat bar
     heartticks = 100
-    square(0, screensize[1]-5, screensize[0] * heartbeat/ heartticks, 5, (0.3, 0.3, 0.3))
+    square(0, screensize[1]-5, screensize[0] * heartbeat / heartticks, 5, (0.3, 0.3, 0.3))
     if heartbeat > heartticks:
         heartbeat = 0
         # Need to return for sensible profiling
@@ -423,12 +423,12 @@ def draw(parameters, op_mode, geometries, colors, monitors, pvs, moves):
     pygame.time.wait(max(50 - time_passed, 0))
 
 
-def loop(parameters, op_mode, args):
-    check_controls(op_mode)
-    if parameters.stale is False:
+def loop(renderer, monitors):
+    check_controls(renderer.op_mode)
+    if renderer.parameters.stale is False:
 
         # wait for fresh values??
-        draw(parameters, op_mode, *args)
+        draw(renderer, monitors)
 
 
 class RenderParams(object):
