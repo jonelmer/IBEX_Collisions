@@ -243,112 +243,123 @@ def sequencer(start, stop, step):
         i += 1
 
 
-def seekLimits(geometries, ignore, moves, monitors, ismoving, limits, coarse=1.0, fine=0.1):
-    softlimits = []
+# Do coarse and fine searches for limits in both forward and backward directions
+def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.1):
 
-    dofineseek = True
-    if fine is None:
-        dofineseek = False
-        fine = 0.01
+    # Initialise dynamic limits - be careful to copy, not reference
+    dynamic_limits = [l[:] for l in limits[:]]
 
-    for i in range(len(limits)):
-        softlimits.append(list(limits[i][:]))
-
+    # Loop over the number of monitors provided
+    for i in range(len(monitors)):
+        # Create some dummy monitors for seeking about
         dummies = [DummyMonitor(monitor.value()) for monitor in monitors]
 
+        # Store the current position of the motor in question
         start = dummies[i].value()
 
+        # Get the max and min configuration limits
         min = np.min(limits[i])
         max = np.max(limits[i])
 
-        # Already exceeded the hard limit!!
+        # Find the lower limit
         if min >= start:
-            softlimits[i][0] = min
+            # Already exceeded the configuration limit!!
+            dynamic_limits[i][0] = min
         else:
-            step = start
-            # Seek the lower limit
+            # Create a sequence from start, to the configuration minimum, in multiples of coarse
             sequence = np.arange(start, min, -coarse)
-            # Make sure the last step is the hard limit
+            # Make sure the last step is the limit
             sequence = np.append(sequence, min)
 
+            # Search for a collision within the sequence
             step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
 
             # Consider whether to do a fine seek
             if step == start:
                 # There was already a crash before we started to seek
-                softlimits[i][0] = start
+                dynamic_limits[i][0] = start
 
+            # If there were no collisions, then don't bother doing a fine search
             elif step == min and not collided:
-                # We didn't find any collisions so safe to use the limit
-                softlimits[i][0] = min
+                # We didn't find any collisions so use the limit
+                dynamic_limits[i][0] = min
 
             else:
                 # There is a collision between step+coarse and step
+                # Generate a sequence with between step+coarse, and step, in multiples of fine
                 sequence = np.arange(step+coarse, step, -fine)
 
+                # Search for a collision within the sequence
                 step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
 
-                softlimits[i][0] = step + fine
+                # Update the limit
+                dynamic_limits[i][0] = step + fine
 
-
-        # Already exceeded the hard limit!!
+        # Find the upper limit
         if max <= start:
-            softlimits[i][1] = max
+            # Already exceeded the configuration limit!!
+            dynamic_limits[i][1] = max
         else:
-            step = start
-            # Seek the lower limit
+            # Create a sequence from start, to the configuration maximum, in multiples of coarse
             sequence = np.arange(start, max, coarse)
-            # Make sure the last step is the hard limit
+            # Make sure the last step is the limit
             sequence = np.append(sequence, max)
 
+            # Search for a collision within the sequence
             step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
 
             # Consider whether to do a fine seek
             if step == start:
                 # There was already a crash before we started to seek
-                softlimits[i][1] = start
+                dynamic_limits[i][1] = start
 
+            # If there were no collisions, then don't bother doing a fine search
             elif step == max and not collided:
-                # We didn't find any collisions so safe to use the limit
-                softlimits[i][1] = max
+                # We didn't find any collisions so use the limit
+                dynamic_limits[i][1] = max
 
             else:
                 # There is a collision between step-coarse and step
+                # Generate a sequence with between step-coarse, and step, in multiples of fine
                 sequence = np.arange(step-coarse, step, fine)
 
+                # Search for a collision within the sequence
                 step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
 
-                softlimits[i][1] = step - fine
+                # Update the limit
+                dynamic_limits[i][1] = step - fine
+
+        # Cap the limits within the configuration limits
+        if dynamic_limits[i][0] < min:
+            dynamic_limits[i][0] = min
+        if dynamic_limits[i][1] > max:
+            dynamic_limits[i][1] = max
+
+    return dynamic_limits
 
 
-        # Cap the limits
-        if softlimits[i][0] < min:
-            softlimits[i][0] = min
-
-        if softlimits[i][1] > max:
-            softlimits[i][1] = max
-
-
-    # Restore positions
-    move_all(monitors, geometries, moves)
-
-    return softlimits
-
+# Search for the first collision within the given sequence of steps
 def seek(sequence, dummies, i, moves, geometries, ignore):
+    # Initialise some variables
     collided = False
     step = None
 
-    for c in sequence:
-        step = c
+    # Iterate over the sequence
+    for s in sequence:
+        # Update the current step
+        step = s
+        # Update the dummy monitor
         dummies[i].update(step)
         # Move to position
         move_all(dummies, geometries, moves)
         # Check for collisions
         collisions = collide(geometries, ignore)
+        # If we've collided, then stop iterating
         if any(collisions):
             collided = True
             break
-
+    # Return the current step, and whether any collisions have occurred
+    # Could just check if the step was the last value in the sequence?
     return step, collided
 
 
@@ -368,20 +379,28 @@ def collide(geometries, ignore):
     return collisions
 
 
-def setLimits(limits, pvs):
+# Set the high and low dial limits for each motor
+def set_limits(limits, pvs):
     for limit, pv in zip(limits, pvs):
         set_pv(pv + '.DLLM', np.min(limit))
         set_pv(pv + '.DHLM', np.max(limit))
 
 
+# Contains operating mode events
 class OperatingMode(object):
     def __init__(self):
+        # Close event to be triggered by the render thread
         self.close = threading.Event()
+
+        # Set dynamic limits automatically
         self.set_limits = threading.Event()
+
+        # Stop the motors on a collision
         self.auto_stop = threading.Event()
 
 
-def run():
+# The main routine to execute
+def main():
 
     # Load config:
     colors = config.colors
@@ -452,7 +471,7 @@ def run():
             time_passed = time()
 
             # Seek the correct limit values
-            dynamic_limits = seekLimits(geometries, ignore, moves, frozen, ismoving, config_limits, coarse=10.0, fine=0.1)
+            dynamic_limits = seekLimits(geometries, ignore, moves, frozen, config_limits, coarse=10.0, fine=0.1)
 
             # Calculate and log the time taken to calculate
             time_passed = (time() - time_passed) * 1000
@@ -464,10 +483,10 @@ def run():
             # Set the limits according to the set_limits operating mode
             if op_mode.set_limits.is_set():
                 # Apply the calculated limits
-                setLimits(dynamic_limits, pvs)
+                set_limits(dynamic_limits, pvs)
             else:
                 # Restore the configuration limits
-                setLimits(config_limits, pvs)
+                set_limits(config_limits, pvs)
 
             # Update the render thread parameters
             parameters.update_params(dynamic_limits, collisions, time_passed)
@@ -479,7 +498,7 @@ def run():
         else:
             # Restore the configuration limits
             if op_mode.set_limits.is_set() is False:
-                setLimits(config_limits, pvs)
+                set_limits(config_limits, pvs)
 
         # If there has been a collision:
         if any(collisions):
@@ -494,11 +513,11 @@ def run():
         # Exit the program
         if op_mode.close.is_set():
             # Restore the configuration limits
-            setLimits(config_limits, pvs)
+            set_limits(config_limits, pvs)
             return
 
         # Give the CPU a break
         sleep(0.01)
 
-
-run()
+# Execute main
+main()
