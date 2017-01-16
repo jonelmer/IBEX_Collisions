@@ -424,7 +424,7 @@ def draw(renderer, monitors):
 
 
 def loop(renderer, monitors):
-    check_controls(renderer.op_mode)
+    check_controls(renderer)
     if renderer.parameters.stale is False:
 
         # wait for fresh values??
