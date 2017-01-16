@@ -133,7 +133,7 @@ class GeometryBox(object):
             glEnd()
 
     # Set the size of the ODE geometry
-    def setSize(self, x=None, y=None, z=None):
+    def set_size(self, x=None, y=None, z=None):
         # Only need to set the size of dimensions supplied
         if x is not None:
             self.size[0] = x
@@ -143,7 +143,7 @@ class GeometryBox(object):
             self.size[2] = z
 
     # Set the transform for the geometry
-    def setTransform(self, transform):
+    def set_transform(self, transform):
         # Get the rotation and position elements from the transformation matrix
         rot, pos = transform.split()
 
@@ -156,7 +156,7 @@ class GeometryBox(object):
 
 
 # Do coarse and fine searches for limits in both forward and backward directions
-def seekLimits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.1):
+def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.1):
 
     # Initialise dynamic limits - be careful to copy, not reference
     dynamic_limits = [l[:] for l in limits[:]]
@@ -383,7 +383,7 @@ def main():
             time_passed = time()
 
             # Seek the correct limit values
-            dynamic_limits = seekLimits(geometries, ignore, moves, frozen, config_limits, coarse=10.0, fine=0.1)
+            dynamic_limits = seek_limits(geometries, ignore, moves, frozen, config_limits, coarse=10.0, fine=0.1)
 
             # Calculate and log the time taken to calculate
             time_passed = (time() - time_passed) * 1000
