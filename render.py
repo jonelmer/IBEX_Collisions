@@ -1,5 +1,3 @@
-from math import radians
-
 import pygame
 from OpenGL.GL import *
 from OpenGL.GL.VERSION.GL_1_0 import glLoadMatrixd
@@ -22,7 +20,6 @@ import logging
 
 import numpy as np
 from transform import Transformation
-from gameobjects.vector3 import Vector3
 
 from monitor import DummyMonitor
 from move import move_all
@@ -57,13 +54,13 @@ class Grid(object):
         for x in xrange(0, self.size[0], self.scale):
             for z in xrange(0, self.size[2], self.scale):
 
-                offset = (x, 0, z)
+                offset = np.array((x, 0, z))
 
                 # Adjust all the vertices so that the grid is at self.position
-                vertices = self.vertices
-                vertices = [tuple(Vector3(v) * self.scale) for v in vertices]
-                vertices = [tuple(Vector3(v) + self.position) for v in vertices]
-                vertices = [tuple(Vector3(v) + offset) for v in vertices]
+                vertices = np.array(self.vertices)
+                vertices = [v * self.scale for v in vertices]
+                vertices = [v + self.position for v in vertices]
+                vertices = [v + offset for v in vertices]
 
                 for edge_no in xrange(4):
                     v1, v2 = self.edge_indices[edge_no]
@@ -111,7 +108,6 @@ initialise_camera(camera_transform)
 
 # Initialize speeds and directions for camera
 rotation_speed = 0.7
-movement_direction = Vector3()
 movement_speed = 250.0
 
 # Make a grid
@@ -341,8 +337,6 @@ def draw(renderer, monitors):
             geometry.render((0.8, 0, 0))
         else:
             geometry.render()
-
-    #grid.render()
 
     # Set the HUD normal to the camera's position - gives us full illumination?
     glNormal3dv([0., -1., 0.])
