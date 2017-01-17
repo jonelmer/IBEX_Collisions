@@ -9,7 +9,6 @@ from genie_python.genie_startup import *
 
 import config
 import render
-from gameobjects.vector3 import *
 from monitor import Monitor, DummyMonitor
 from move import move_all
 
@@ -79,8 +78,8 @@ class GeometryBox(object):
             glColor(self.color)
 
         # Adjust all the vertices so that the cube is at self.position
-        vertices = self.vertices
-        vertices = [tuple(Vector3(v) * self.size) for v in vertices]
+        vertices = np.array(self.vertices)
+        vertices = [v * self.size for v in vertices]
 
         # Get the position and rotation of the geometry
         x, y, z = self.geom.getPosition()
