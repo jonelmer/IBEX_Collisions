@@ -116,6 +116,7 @@ class GeometryBox(object):
 
         # We want a wire frame:
         else:
+            glNormal3dv([0, 0, 1])
             # Start drawing lines
             glBegin(GL_LINES)
 

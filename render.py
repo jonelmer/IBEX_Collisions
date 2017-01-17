@@ -21,7 +21,7 @@ import threading
 import logging
 
 import numpy as np
-from gameobjects.matrix44 import Matrix44
+from transform import Transformation
 from gameobjects.vector3 import Vector3
 
 from monitor import DummyMonitor
@@ -75,13 +75,14 @@ class Grid(object):
 
 
 # Camera transform matrix
-def initialise_camera():
-    camera_matrix = Matrix44()
-    camera_matrix.translate = (-700, -1400, 500)
-    #camera_matrix.translate = (-10, -25, 20)
-    camera_matrix *= Matrix44.xyz_rotation(0, 0, -0.4)
-    camera_matrix *= Matrix44.xyz_rotation(0.95, 0, 0)
-    return camera_matrix
+def initialise_camera(transform):
+    transform.identity()
+
+    transform.translate(0, 400, 1600)
+    transform.rotate(-0.8, 0.5, 0)
+    transform.rotate(0, 0, -2.5, forward=False)
+    transform.translate(-200, 200, 200)
+    return transform
 
 
 logging.basicConfig(level=logging.DEBUG,
@@ -105,12 +106,10 @@ time_passed = 0
 
 font = None
 
-
-
-camera_matrix = initialise_camera()
+camera_transform = Transformation()
+initialise_camera(camera_transform)
 
 # Initialize speeds and directions for camera
-rotation_direction = Vector3()
 rotation_speed = 0.7
 movement_direction = Vector3()
 movement_speed = 250.0
@@ -170,7 +169,7 @@ class Renderer(threading.Thread):
         self.geometries = geometries
 
         for geometry in self.geometries:
-            geometry.fill = True
+            #geometry.fill = True
             pass
 
         self.colors = colors
@@ -191,7 +190,7 @@ class Renderer(threading.Thread):
 
 def check_controls(renderer):
 
-    global camera_matrix, stopMotors, autoRestart, time_passed
+    global camera_transform, stopMotors, autoRestart, time_passed
 
     for event in pygame.event.get():
         if event.type == QUIT:
@@ -209,34 +208,34 @@ def check_controls(renderer):
     pressed = pygame.key.get_pressed()
 
     # Reset rotation and movement directions
-    rotation_direction.set(0.0, 0.0, 0.0)
-    movement_direction.set(0.0, 0.0, 0.0)
+    rotation_direction = np.array((0.0, 0.0, 0.0))
+    movement_direction = np.array((0.0, 0.0, 0.0))
 
     # Modify direction vectors for key presses
     if pressed[K_LEFT]:
-        rotation_direction.y = +1.0
+        rotation_direction[1] = +1.0
     elif pressed[K_RIGHT]:
-        rotation_direction.y = -1.0
+        rotation_direction[1] = -1.0
     if pressed[K_DOWN]:
-        rotation_direction.x = -1.0
+        rotation_direction[0] = -1.0
     elif pressed[K_UP]:
-        rotation_direction.x = +1.0
+        rotation_direction[0] = +1.0
     if pressed[K_z]:
-        rotation_direction.z = -1.0
+        rotation_direction[2] = +1.0
     elif pressed[K_x]:
-        rotation_direction.z = +1.0
+        rotation_direction[2] = -1.0
     if pressed[K_w]:
-        movement_direction.z = -1.0
+        movement_direction[2] = -1.0
     elif pressed[K_s]:
-        movement_direction.z = +1.0
+        movement_direction[2] = +1.0
     if pressed[K_a]:
-        movement_direction.x = -1.0
+        movement_direction[0] = -1.0
     elif pressed[K_d]:
-        movement_direction.x = +1.0
+        movement_direction[0] = +1.0
     if pressed[K_q]:
-        movement_direction.y = -1.0
+        movement_direction[1] = -1.0
     elif pressed[K_e]:
-        movement_direction.y = +1.0
+        movement_direction[1] = +1.0
     if pressed[K_1]:
         renderer.op_mode.auto_stop.set()
     elif pressed[K_2]:
@@ -246,38 +245,24 @@ def check_controls(renderer):
     elif pressed[K_4]:
         renderer.op_mode.set_limits.clear()
     if pressed[K_SPACE]:
-        camera_matrix = initialise_camera()
+        initialise_camera(camera_transform)
     # if pressed[K_RETURN]:
     #     setLimits(config.hardlimits, config.pvs)
 
-    # Calculate rotation matrix and multiply by camera matrix
+    # Calculate camera rotation
     rotation = rotation_direction * rotation_speed * time_passed_seconds
-    rotation_matrix = Matrix44.xyz_rotation(*rotation)
-    camera_matrix *= rotation_matrix
+    camera_transform.rotate(*rotation, forward=False)
 
-    # Calculate forward movement and add it to camera matrix translate
-    heading = Vector3(camera_matrix.forward)
-    movement = heading * movement_direction.z * movement_speed
-    forward = movement * time_passed_seconds
-    camera_matrix.translate += forward
-
-    # Calculate strafe movement and add it to camera matrix translate
-    heading = Vector3(camera_matrix.right)
-    movement = heading * movement_direction.x * movement_speed
-    right = movement * time_passed_seconds
-    camera_matrix.translate += right
-
-    # Calculate strafe movement and add it to camera matrix translate
-    heading = Vector3(camera_matrix.up)
-    movement = heading * movement_direction.y * movement_speed
-    up = movement * time_passed_seconds
-    camera_matrix.translate += up
+    # Calculate camera movement
+    camera_transform.translate(*(movement_direction * movement_speed * time_passed_seconds), forward=False)
+    #camera_transform.translate(y=movement_direction.y * movement_speed * time_passed_seconds, forward=False)
+    #camera_transform.translate(z=movement_direction.z * movement_speed * time_passed_seconds, forward=False)
 
     # Light must be transformed as well
     glLight(GL_LIGHT0, GL_POSITION, (0.0, 0.0, 1.0, 1.0))
 
     # Upload the inverse camera matrix to OpenGL
-    glLoadMatrixd(camera_matrix.get_inverse().to_opengl())
+    glLoadMatrixd(np.reshape(camera_transform.get_inverse(), (1, 16))[0])
 
 
 def square(x, y, w=50, h=50, color=(1, 0, 0)):
@@ -337,7 +322,7 @@ def text(x, y, string, color=(0.4, 0.4, 0.4), align="left"):
 def draw(renderer, monitors):
     softlimits, collisions, duration = renderer.parameters.get_params()
 
-    global stopMotors, autoRestart, heartbeat, time_passed
+    global stopMotors, autoRestart, heartbeat, time_passed, camera_transform
 
     # Clear the screen, and z-buffer
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -362,7 +347,7 @@ def draw(renderer, monitors):
     #grid.render()
 
     # Set the HUD normal to the camera's position - gives us full illumination?
-    glNormal3dv(list(camera_matrix)[12:15])
+    glNormal3dv([0., -1., 0.])
 
     # Display the status icon
     if any(collisions):
