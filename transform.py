@@ -1,16 +1,26 @@
 import numpy as np
-from math import radians, sin, cos
+from math import sin, cos
 
 
 class Transformation(object):
+    # Initialise the transformation matrix to an identity
     def __init__(self):
         self.matrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
-        self.identity()
 
+    # Reset the matrix to an identity - clears all transforms
     def identity(self):
         self.matrix = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 
     def rotate(self, rx=0, ry=0, rz=0, forward=True):
+        """
+        Rotate by the angles rx, ry, rz
+
+        If forward is true:   new matrix = rotation . old matrix,
+        otherwise it is:      new matrix = old matrix . rotation
+        Likewise, this reverses the order of rotation if doing more than one rotation in the same call
+        """
+
+        # Rotation about X
         if rx is not 0:
             rotate = np.array([[1, 0, 0, 0],
                                [0, cos(rx), -sin(rx), 0],
@@ -21,6 +31,7 @@ class Transformation(object):
             else:
                 self.matrix = np.dot(self.matrix, rotate)
 
+        # Rotation about Y
         if ry is not 0:
             rotate = np.array([[cos(ry), 0, -sin(ry), 0],
                                [0, 1, 0, 0],
@@ -31,6 +42,7 @@ class Transformation(object):
             else:
                 self.matrix = np.dot(self.matrix, rotate)
 
+        # Rotation about Z
         if rz is not 0:
             rotate = np.array([[cos(rz), -sin(rz), 0, 0],
                                [sin(rz), cos(rz), 0, 0],
@@ -42,6 +54,12 @@ class Transformation(object):
                 self.matrix = np.dot(self.matrix, rotate)
 
     def translate(self, x=0, y=0, z=0, forward=True):
+        """
+        Translate by x, y and z
+
+        If forward is true:   new matrix = translation . old matrix,
+        otherwise it is:      new matrix = old matrix . translation
+        """
         if forward:
             self.matrix = np.dot(
                 np.array([[1, 0, 0, x],
