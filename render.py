@@ -25,52 +25,6 @@ from monitor import DummyMonitor
 from move import move_all
 
 
-# This is super greedy on resources!! Can definitely optimise a ton!
-class Grid(object):
-    def __init__(self, scale=5, size=(20, 0, 20), position=(0, 0, 0), color=(0.2, 0.2, 0.2)):
-
-        # self.position = list(position)
-        self.color = color
-        self.position = position
-        self.size = size
-        self.scale = scale
-
-    vertices = [(0.0, 0.0, 0.0),
-                (1.0, 0.0, 0.0),
-                (1.0, 0.0, 1.0),
-                (0.0, 0.0, 1.0)]
-
-    edge_indices = [(0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (3, 0)]
-
-    def render(self):
-
-        glColor(self.color)
-
-        glBegin(GL_LINES)
-
-        for x in xrange(0, self.size[0], self.scale):
-            for z in xrange(0, self.size[2], self.scale):
-
-                offset = np.array((x, 0, z))
-
-                # Adjust all the vertices so that the grid is at self.position
-                vertices = np.array(self.vertices)
-                vertices = [v * self.scale for v in vertices]
-                vertices = [v + self.position for v in vertices]
-                vertices = [v + offset for v in vertices]
-
-                for edge_no in xrange(4):
-                    v1, v2 = self.edge_indices[edge_no]
-
-                    glVertex(vertices[v1])
-                    glVertex(vertices[v2])
-
-        glEnd()
-
-
 # Camera transform matrix
 def initialise_camera(transform):
     transform.identity()
@@ -109,9 +63,6 @@ initialise_camera(camera_transform)
 # Initialize speeds and directions for camera
 rotation_speed = 0.7
 movement_speed = 250.0
-
-# Make a grid
-grid = Grid(scale=1, position=(-11, 0, -11), size=(22, 0, 22))
 
 
 def glinit():
@@ -209,9 +160,9 @@ def check_controls(renderer):
 
     # Modify direction vectors for key presses
     if pressed[K_LEFT]:
-        rotation_direction[1] = +1.0
-    elif pressed[K_RIGHT]:
         rotation_direction[1] = -1.0
+    elif pressed[K_RIGHT]:
+        rotation_direction[1] = +1.0
     if pressed[K_DOWN]:
         rotation_direction[0] = -1.0
     elif pressed[K_UP]:
