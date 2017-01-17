@@ -44,10 +44,10 @@ class GeometryBox(object):
 
     normals = [(0.0, 0.0, +1.0),  # top
                (0.0, 0.0, -1.0),  # bot
+               (-1.0, 0.0, 0.0),  # left
+               (+1.0, 0.0, 0.0),  # right
                (0.0, +1.0, 0.0),  # front
                (0.0, -1.0, 0.0),  # back
-               (+1.0, 0.0, 0.0),  # left
-               (-1.0, 0.0, 0.0),  # right
                ]
 
     vertex_indices = [(0, 1, 2, 3),  # front

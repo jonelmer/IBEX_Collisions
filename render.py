@@ -169,7 +169,7 @@ class Renderer(threading.Thread):
         self.geometries = geometries
 
         for geometry in self.geometries:
-            #geometry.fill = True
+            geometry.fill = True
             pass
 
         self.colors = colors
@@ -255,11 +255,9 @@ def check_controls(renderer):
 
     # Calculate camera movement
     camera_transform.translate(*(movement_direction * movement_speed * time_passed_seconds), forward=False)
-    #camera_transform.translate(y=movement_direction.y * movement_speed * time_passed_seconds, forward=False)
-    #camera_transform.translate(z=movement_direction.z * movement_speed * time_passed_seconds, forward=False)
 
     # Light must be transformed as well
-    glLight(GL_LIGHT0, GL_POSITION, (0.0, 0.0, 1.0, 1.0))
+    glLight(GL_LIGHT0, GL_POSITION, (0.0, 0.0, -1.0, 1.0))
 
     # Upload the inverse camera matrix to OpenGL
     glLoadMatrixd(np.reshape(camera_transform.get_inverse(), (1, 16))[0])
