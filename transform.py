@@ -4,10 +4,11 @@ from math import radians, sin, cos
 
 class Transformation(object):
     def __init__(self):
+        self.matrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
         self.identity()
 
     def identity(self):
-        self.matrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+        self.matrix = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 
     def rotate(self, rx=0, ry=0, rz=0, forward=True):
         if rx is not 0:

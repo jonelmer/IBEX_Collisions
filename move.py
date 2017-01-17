@@ -1,5 +1,6 @@
 from transform import Transformation
 
+
 def move_all(monitors, geometries, moves):
     for move, geometry in zip(moves, geometries):
         m = move(monitors)
