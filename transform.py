@@ -2,6 +2,15 @@ import numpy as np
 from math import sin, cos
 
 
+class TransformError(Exception):
+    def __init__(self, description):
+        Exception.__init__(self)
+        self.description = description
+
+    def __str__(self):
+        return self.description
+
+
 class Transformation(object):
     # Initialise the transformation matrix to an identity
     def __init__(self):
@@ -74,13 +83,18 @@ class Transformation(object):
                                            [0, 0, 0, 1]]))
 
     def scale(self, x=1, y=1, z=1):
+        """
+        Scales in x, y and z
+        """
         self.matrix = np.dot(np.array([[x, 0, 0, 0],
                                        [0, y, 0, 0],
                                        [0, 0, z, 0],
                                        [0, 0, 0, 1]]), self.matrix)
 
     def evaluate(self, position):
-
+        """
+        Given a set of [x, y ,z] coordinates, calculate transformed position
+        """
         position = position[0:3] + [1]
 
         result = np.dot(self.matrix, position)
@@ -88,16 +102,23 @@ class Transformation(object):
         return result[0:3]
 
     def split(self):
+        """
+        Separate matrix into rotation and position matrices
+        """
         rotation = self.matrix[0:3, 0:3]
         position = self.matrix[0:3, 3]
 
         return rotation, position
 
     def to_opengl(self):
+        """
+        Reshape to the format expected by OpenGL
+        """
         return np.reshape(self.matrix.T, (1, 16))[0]
 
-    def get_inverse(self):
-        return np.linalg.inv(self.matrix)
+    # Doesn't get the same result as below!
+    # def get_inverse(self):
+    #     return np.linalg.inv(self.matrix)
 
     def get_inverse(self):
 
@@ -128,8 +149,7 @@ class Transformation(object):
         det_1 = negpos[0] + negpos[1]
 
         if (det_1 == 0.) or (abs(det_1 / (negpos[1] - negpos[0])) < (2. * 0.00000000000000001)):
-            #raise Matrix44Error("This Matrix44 can not be inverted")
-            print "Oops"
+            raise TransformError("This transform can not be inverted")
 
         det_1 = 1. / det_1
 
