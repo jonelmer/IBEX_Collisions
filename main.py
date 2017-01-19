@@ -14,8 +14,8 @@ from move import move_all
 
 
 class GeometryBox(object):
-    def __init__(self, space, position=(0, 0, 0), size=(1, 1, 1), color=(1, 1, 1),
-                 origin=(0, 0, 0), angle=(0, 0, 0), oversize=1):
+    def __init__(self, space, position=(0, 0, 0), size=(1, 1, 1), color=(1, 1, 1), oversize=1):
+
         # Set parameters for drawing the body
         self.color = color
         self.size = list(size)
@@ -23,9 +23,6 @@ class GeometryBox(object):
         # Create a box geom for collision detection
         self.geom = ode.GeomBox(space, lengths=[s * oversize for s in self.size])
         self.geom.setPosition(position)
-
-        self.origin = origin
-        self.angles = angle
 
     fill = False
 
