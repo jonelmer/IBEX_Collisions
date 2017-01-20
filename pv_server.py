@@ -31,14 +31,11 @@ class ServerDataException(Exception):
 
 class ServerData(object):
     # Threadsafe class for holding arbitrary data
-    def __init__(self, **kwargs):
+    def __init__(self):
         self.lock = threading.Lock()
 
         # A private dictionary to hold our data
         self.__data = dict(data="Some dummy data")
-
-        # Also set the data supplied
-        self.set_data(**kwargs)
 
     def get_data(self, key=None):
         # Returns the dictionary of data
