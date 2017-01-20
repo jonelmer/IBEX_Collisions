@@ -60,8 +60,25 @@ This works on the assumption that most collisions behave like a [rectangular fun
 
 If the geometries of the computer model are sufficiently larger than the real-world system, the search step can be optimised.
 
+For a given increase in size `S` applied to each dimension:
+```
+modeled size = actual size + 2S
+```
+Assuming a head on collision, a collision of the real world system occurs once the model has collided by at least `2S`. The collision can be detected with a step size of `2S` or less. Furthermore, assuming each object has an actual size of zero, and a modeled size of `2S`, the collision is maintained for `4S`. Therefore any search step of `4S` or less will detect a real-world collision. In the case of an inclined collision, the collision will persist for longer.
 
-   
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
