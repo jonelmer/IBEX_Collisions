@@ -1,6 +1,16 @@
 from pcaspy import SimpleServer, Driver
+from pcaspy.tools import ServerThread
 import random
 import threading
+import logging
+
+# Make sure to run: `set EPICS_CA_ADDR_LIST=127.255.255.255 130.246.51.255 127.0.0.1:50640` then restart ibex server
+# Use `caget -S` to print a char array as a string
+
+# Configure this env with:
+# `EPICS_CAS_SERVER_PORT=50640`
+# `EPICS_CAS_BEACON_ADDR_LIST=127.255.255.255`
+# `EPICS_CAS_INTF_ADDR_LIST=127.0.0.1`
 
 prefix = 'TEST:'
 pvdb = {
@@ -10,17 +20,27 @@ pvdb = {
         'count': 1,
         'type' : 'float',
     },
+    'MSG' : {
+        'count': 300,
+        'type' : 'char',
+    },
 }
 
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s (%(threadName)-2s) %(message)s',
+                    )
+
 class myDriver(Driver):
-    def __init__(self):
+    def __init__(self, data):
         super(myDriver, self).__init__()
+        self.__data = data
 
     def read(self, reason):
-        print "Reading..."
-        print reason
+        logging.debug("Reading '%s'...", reason)
         if reason == 'RAND':
             value = random.random()
+        elif reason == 'MSG':
+            value = self.__data.get_data('MSG')
         else:
             value = self.getParam(reason)
         return value
@@ -59,11 +79,25 @@ class ServerData(object):
 
 
 if __name__ == '__main__':
+    pass
+
+def start_thread():
     server = SimpleServer()
     server.createPV(prefix, pvdb)
+    # server.setDebugLevel(4)
 
-    driver = myDriver()
+    server_thread = ServerThread(server)
+    server_thread.name = "PVServer"
+    server_thread.daemon = True
+    server_thread.start()
+
+
+    data = ServerData()
+
+    driver = myDriver(data)
+
+    return data
 
     # process CA transactions
-    while True:
-        server.process(0.1)
+    #while True:
+    #    server.process(0.1)

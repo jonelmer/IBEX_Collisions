@@ -2,21 +2,26 @@ from math import radians
 from transform import Transformation
 
 # Config happens here:
+
+# Colors for each body
 colors = [(0.6, 0.6, 0.6), (1, 0, 1), (1, 1, 0), (0, 1, 1), (0, 1, 0), (1, 0.5, 0), (0.2, 0.2, 1), (0.2, 0.2, 1), (0, 1, 0), (1, 1, 1), (1, 1, 1)]
 
-# Define the geometry of the system
+# PV prefix for controlling the system
+control_pv = "TE:NDW1720:COLLIDE:"
+
+# Define the geometry of the system in mm
 # Coordinate origin at arc centre, with nominal beam height
-z_stage =   dict(size=(1000.0, 1000.0, 630.0))
-rot_stage = dict(size=(700.0, 700.0, 165.0))
-bot_arc =   dict(size=(700.0, 700.0, 120.0))
-top_arc =   dict(size=(700.0, 700.0, 120.0))
-fine_z =    dict(size=(700.0, 700.0, 120.0))
-y_stage =   dict(size=(700.0,  250.0, 20.0))
-x_stage =   dict(size=(250.0,  250.0, 20.0))
-sample =    dict(size=(150.0, 150.0, 150.0))
-y_base =    dict(size=(700.0, 1000.0, 50.0))
-snout =     dict(position=(-300, 0, 0), size=(500, 70, 70))
-slits =     dict(position=(450, 0, 0), size=(100, 300, 300))
+z_stage =   dict(name="Z Stage",    size=(1000.0, 1000.0, 630.0))
+rot_stage = dict(name="Rotation",   size=(700.0, 700.0, 165.0))
+bot_arc =   dict(name="Bottom Arc", size=(700.0, 700.0, 120.0))
+top_arc =   dict(name="Top Arc",    size=(700.0, 700.0, 120.0))
+fine_z =    dict(name="Fine Z",     size=(700.0, 700.0, 120.0))
+y_stage =   dict(name="Y Carriage", size=(700.0,  250.0, 20.0))
+x_stage =   dict(name="X Carriage", size=(250.0,  250.0, 20.0))
+sample =    dict(name="Sample",     size=(150.0, 150.0, 150.0))
+y_base =    dict(name="Y Stage",    size=(700.0, 1000.0, 50.0))
+snout =     dict(name="Snout", position=(-300, 0, 0), size=(500, 70, 70))
+slits =     dict(name="Slits", position=(450, 0, 0), size=(100, 300, 300))
 
 # Put them in a list
 geometries = [z_stage, rot_stage, bot_arc, top_arc, fine_z, y_stage, x_stage, sample, y_base, snout, slits]
@@ -24,6 +29,13 @@ geometries = [z_stage, rot_stage, bot_arc, top_arc, fine_z, y_stage, x_stage, sa
 # Define some variables to describe the geometry
 centre_arc = 750
 beam_ref = 1625
+
+# Define some search parameters
+coarse = 20
+fine = 0.5
+
+# Define the oversized-ness of each body - a global value in mm
+oversize = coarse/4
 
 # List of pairs to ignore [0, 1]...[7, 8]
 ignore = []

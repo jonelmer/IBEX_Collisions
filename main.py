@@ -9,20 +9,24 @@ from genie_python.genie_startup import *
 
 import config
 import render
+import pv_server
 from monitor import Monitor, DummyMonitor
 from move import move_all
 
 
 class GeometryBox(object):
-    def __init__(self, space, position=(0, 0, 0), size=(1, 1, 1), color=(1, 1, 1), oversize=1):
+    def __init__(self, space, position=(0, 0, 0), size=(1, 1, 1), color=(1, 1, 1), oversize=1, name=None):
 
         # Set parameters for drawing the body
         self.color = color
         self.size = list(size)
 
         # Create a box geom for collision detection
-        self.geom = ode.GeomBox(space, lengths=[s * oversize for s in self.size])
+        self.geom = ode.GeomBox(space, lengths=[s + 2 + oversize for s in self.size])
         self.geom.setPosition(position)
+
+        # A friendly name
+        self.name = name
 
     fill = False
 
@@ -317,6 +321,7 @@ def main():
     ignore = config.ignore
     pvs = config.pvs
     config_limits = config.hardlimits
+    old_limits = config_limits[:]
 
     # Create space objects for the live and rendered world
     space = ode.Space()
@@ -326,7 +331,7 @@ def main():
     geometries = []
     rendergeometries = []
     for i, geometry in enumerate(config.geometries):
-        geometries.append(GeometryBox(space, color=colors[i % len(colors)], **geometry))
+        geometries.append(GeometryBox(space, color=colors[i % len(colors)], oversize=config.oversize, **geometry))
         rendergeometries.append(GeometryBox(renderspace, color=colors[i % len(colors)], **geometry))
 
     # Create and populate two lists of monitors
@@ -357,6 +362,11 @@ def main():
     # Need to know if this is the first execution of the main loop
     first_run = True
 
+    # Initialise the pv server
+    pv_server.prefix = config.control_pv
+    data = pv_server.start_thread()
+    data.set_data(MSG='Hello world!!??!')
+
     # Main loop
     while True:
 
@@ -375,12 +385,14 @@ def main():
         # Check if any of the motors monitors are moving
         moving = any([m.value() for m in ismoving])
 
+        new_limits = []
+
         if fresh or moving or first_run:
             # Start timing for diagnostics
             time_passed = time()
 
             # Seek the correct limit values
-            dynamic_limits = seek_limits(geometries, ignore, moves, frozen, config_limits, coarse=10.0, fine=0.1)
+            dynamic_limits = seek_limits(geometries, ignore, moves, frozen, config_limits, coarse=config.coarse, fine=config.fine)
 
             # Calculate and log the time taken to calculate
             time_passed = (time() - time_passed) * 1000
@@ -392,10 +404,12 @@ def main():
             # Set the limits according to the set_limits operating mode
             if op_mode.set_limits.is_set():
                 # Apply the calculated limits
-                set_limits(dynamic_limits, pvs)
+                new_limits = dynamic_limits[:]
+                #set_limits(dynamic_limits, pvs)
             else:
                 # Restore the configuration limits
-                set_limits(config_limits, pvs)
+                new_limits = config_limits[:]
+                #set_limits(config_limits, pvs)
 
             # Update the render thread parameters
             parameters.update_params(dynamic_limits, collisions, time_passed)
@@ -407,17 +421,29 @@ def main():
         else:
             # Restore the configuration limits
             if op_mode.set_limits.is_set() is False:
-                set_limits(config_limits, pvs)
+                new_limits = config_limits[:]
+                #set_limits(config_limits, pvs)
+
+        # Stop us overloading the limits
+        if not new_limits == old_limits:
+            set_limits(new_limits, pvs)
+
+        old_limits = new_limits[:]
 
         # If there has been a collision:
         if any(collisions):
             # Log the collisions
             logging.debug("Collisions on %s", [i for i in np.where(collisions)[0]])
+            data.set_data(MSG="Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])))
             # Stop the moving motors based on the operating mode auto_stop
             if op_mode.auto_stop.is_set():
+                logging.debug("Stopping motors %s" % [i for i, m in enumerate(ismoving) if m.value()])
                 for moving, pv in zip(ismoving, pvs):
-                    if moving:
+                    if moving.value():
+                        # print "Stop %s" % pv
                         set_pv(pv + '.STOP', 1)
+        else:
+            data.set_data(MSG="No collisions detected.")
 
         # Exit the program
         if op_mode.close.is_set():
