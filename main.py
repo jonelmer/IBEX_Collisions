@@ -366,6 +366,7 @@ def main():
     pv_server.prefix = config.control_pv
     data = pv_server.start_thread()
     data.set_data(MSG='Hello world!!??!')
+    data.set_data(MODE=0)
 
     # Main loop
     while True:

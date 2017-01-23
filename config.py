@@ -12,14 +12,14 @@ control_pv = "TE:NDW1720:COLLIDE:"
 # Define the geometry of the system in mm
 # Coordinate origin at arc centre, with nominal beam height
 z_stage =   dict(name="Z Stage",    size=(1000.0, 1000.0, 630.0))
-rot_stage = dict(name="Rotation",   size=(700.0, 700.0, 165.0))
-bot_arc =   dict(name="Bottom Arc", size=(700.0, 700.0, 120.0))
-top_arc =   dict(name="Top Arc",    size=(700.0, 700.0, 120.0))
-fine_z =    dict(name="Fine Z",     size=(700.0, 700.0, 120.0))
-y_stage =   dict(name="Y Carriage", size=(700.0,  250.0, 20.0))
-x_stage =   dict(name="X Carriage", size=(250.0,  250.0, 20.0))
-sample =    dict(name="Sample",     size=(150.0, 150.0, 150.0))
-y_base =    dict(name="Y Stage",    size=(700.0, 1000.0, 50.0))
+rot_stage = dict(name="Rotation",   size=( 600.0,  600.0, 165.0))
+bot_arc =   dict(name="Bottom Arc", size=( 600.0,  600.0, 120.0))
+top_arc =   dict(name="Top Arc",    size=( 600.0,  600.0, 120.0))
+fine_z =    dict(name="Fine Z",     size=( 600.0,  600.0, 120.0))
+y_stage =   dict(name="Y Carriage", size=( 600.0,  300.0, 20.0))
+x_stage =   dict(name="X Carriage", size=( 520.0,  300.0, 20.0))
+sample =    dict(name="Sample",     size=( 250.0,  250.0, 150.0))
+y_base =    dict(name="Y Stage",    size=( 900.0, 1200.0, 50.0))
 snout =     dict(name="Snout", position=(-300, 0, 0), size=(500, 70, 70))
 slits =     dict(name="Slits", position=(450, 0, 0), size=(100, 300, 300))
 
@@ -164,4 +164,4 @@ hardlimits = [[-220, 100],
               [-20.0, 20.0],
               [0.0, 30.0],
               [-300, 300],
-              [-200, 200]]
+              [-37.5, 37.5]]

@@ -24,6 +24,10 @@ pvdb = {
         'count': 300,
         'type' : 'char',
     },
+    'MODE': {
+        'count': 1,
+        'type': 'int',
+    },
 }
 
 logging.basicConfig(level=logging.DEBUG,
@@ -41,9 +45,17 @@ class myDriver(Driver):
             value = random.random()
         elif reason == 'MSG':
             value = self.__data.get_data('MSG')
+        elif reason == 'MODE':
+            value = self.__data.get_data('MODE')
         else:
             value = self.getParam(reason)
         return value
+
+    def write(self, reason, value):
+        status = True
+        if reason == 'MODE':
+            self.__data.set_data(MODE=value)
+        return status
 
 class ServerDataException(Exception):
     pass
