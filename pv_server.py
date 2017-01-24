@@ -12,6 +12,8 @@ import logging
 # `EPICS_CAS_BEACON_ADDR_LIST=127.255.255.255`
 # `EPICS_CAS_INTF_ADDR_LIST=127.0.0.1`
 
+count = 1
+
 pvdb = {
     'RAND' : {
         'prec' : 3,
@@ -22,6 +24,10 @@ pvdb = {
     'MSG' : {
         'count': 300,
         'type' : 'char',
+    },
+    'NAMES' : {
+        'count': count,
+        'type': 'string',
     },
     'MODE': {
         'count': 1,
@@ -40,34 +46,54 @@ pvdb = {
         'type': 'int',
     },
     'HI_LIM': {
-        'count': 1,
+        'count': count,
         'type': 'float',
         'prec': 3,
     },
     'LO_LIM': {
-        'count': 1,
+        'count': count,
         'type': 'float',
         'prec': 3,
     },
     'TRAVEL': {
-        'count': 1,
+        'count': count,
         'type': 'float',
         'prec': 3,
     },
     'TRAV_F': {
-        'count': 1,
+        'count': count,
         'type': 'float',
         'prec': 3,
     },
     'TRAV_R': {
-        'count': 1,
+        'count': count,
         'type': 'float',
         'prec': 3,
+    },
+    'COLLIDED': {
+        'count': count,
+        'type': 'int',
     },
     'OVERSIZE': {
         'count': 1,
         'type': 'float',
         'prec': 3,
+        'unit': 'mm',
+    },
+    'COARSE': {
+        'count': 1,
+        'type': 'float',
+        'prec': 3,
+    },
+    'FINE': {
+        'count': 1,
+        'type': 'float',
+        'prec': 3,
+    },
+    'TIME': {
+        'count': 1,
+        'type': 'int',
+        # 'scan': 1,
     },
 }
 
@@ -119,7 +145,11 @@ class myDriver(Driver):
             elif value == 0:
                 self.op_mode.set_limits.clear()
         elif reason == 'OVERSIZE':
-            self.__data.set_data(OVERSIZE=value, new_oversize=True)
+            self.__data.set_data(OVERSIZE=value, COARSE=4*value, new_data=True)
+        elif reason == 'COARSE':
+            self.__data.set_data(OVERSIZE=value/4, COARSE=value, new_data=True)
+        elif reason == 'FINE':
+            self.__data.set_data(FINE=value, new_data=True)
         return status
 
 class ServerDataException(Exception):

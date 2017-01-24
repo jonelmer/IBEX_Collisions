@@ -401,14 +401,20 @@ def main():
     data = pv_server.ServerData()
     data.set_data(MSG='Hello world!!??!')
     data.set_data(OVERSIZE=config.oversize)
-    data.set_data(new_oversize=False)
+    data.set_data(COARSE=config.coarse)
+    data.set_data(FINE=config.fine)
+    data.set_data(new_data=False)
+    data.set_data(NAMES=[g['name'] for g in config.geometries])
 
     pv_server.pvdb['HI_LIM']['count'] = len(config.pvs)
     pv_server.pvdb['LO_LIM']['count'] = len(config.pvs)
     pv_server.pvdb['TRAVEL']['count'] = len(config.pvs)
     pv_server.pvdb['TRAV_F']['count'] = len(config.pvs)
     pv_server.pvdb['TRAV_R']['count'] = len(config.pvs)
-    pv_server.start_thread(config.control_pv, data, op_mode)
+    pv_server.pvdb['NAMES']['count'] = len(config.geometries)
+    pv_server.pvdb['COLLIDED']['count'] = len(config.geometries)
+
+    driver = pv_server.start_thread(config.control_pv, data, op_mode)
 
     # Main loop
     while True:
@@ -423,67 +429,8 @@ def main():
         # Check for collisions
         collisions = collide(geometries, ignore)
 
-        # Check if there have been any changes to the .MOVN monitors
-        fresh = any([m.fresh() for m in ismoving])
-        # Check if any of the motors monitors are moving
-        moving = any([m.value() for m in ismoving])
-
-        new_limits = []
-
-        if data.get_data('new_oversize'):
-            for geometry in geometries:
-                geometry.set_size(oversize=data.get_data('OVERSIZE'))
-            calc_limits = True
-
-        if fresh or moving or calc_limits:
-            # Start timing for diagnostics
-            time_passed = time()
-
-            # Seek the correct limit values
-            dynamic_limits = seek_limits(geometries, ignore, moves, frozen, config_limits,
-                                         coarse=config.coarse, fine=config.fine)
-
-            # Calculate and log the time taken to calculate
-            time_passed = (time() - time_passed) * 1000
-            logging.debug("Calculated limits in %d", time_passed)
-
-            # Log the new limits
-            logging.debug("New limits are " + str(dynamic_limits))
-
-            # Set the limits according to the set_limits operating mode
-            if op_mode.set_limits.is_set():
-                # Apply the calculated limits
-                new_limits = dynamic_limits[:]
-                #set_limits(dynamic_limits, pvs)
-            else:
-                # Restore the configuration limits
-                new_limits = config_limits[:]
-                #set_limits(config_limits, pvs)
-
-            # Update the render thread parameters
-            parameters.update_params(dynamic_limits, collisions, time_passed)
-            data.set_data(HI_LIM=[l[1] for l in dynamic_limits], LO_LIM=[l[0] for l in dynamic_limits])
-
-            data.set_data(TRAVEL=[min([l[0] - m.value(), l[1] - m.value()], key=abs) for l, m in zip(dynamic_limits, frozen)])
-            data.set_data(TRAV_F=[l[1] - m.value() for l, m in zip(dynamic_limits, frozen)])
-            data.set_data(TRAV_R=[l[0] - m.value() for l, m in zip(dynamic_limits, frozen)])
-
-            # On the first run, start the renderer
-            if renderer.is_alive() is False:
-                renderer.start()
-
-            calc_limits = False
-        else:
-            # Restore the configuration limits
-            if op_mode.set_limits.is_set() is False:
-                new_limits = config_limits[:]
-                #set_limits(config_limits, pvs)
-
-        # Stop us overloading the limits
-        if not new_limits == old_limits:
-            set_limits(new_limits, pvs)
-
-        old_limits = new_limits[:]
+        # Get some data to the user:
+        data.set_data(COLLIDED=[int(c) for c in collisions])
 
         # If there has been a collision:
         if any(collisions):
@@ -501,6 +448,70 @@ def main():
         else:
             data.set_data(MSG="No collisions detected.")
             data.set_data(SAFE=1)
+
+        # Check if there have been any changes to the .MOVN monitors
+        fresh = any([m.fresh() for m in ismoving])
+        # Check if any of the motors monitors are moving
+        moving = any([m.value() for m in ismoving])
+
+        new_limits = []
+
+        if data.get_data('new_data'):
+            data.set_data(new_data=False)
+            for geometry in geometries:
+                geometry.set_size(oversize=data.get_data('OVERSIZE'))
+            calc_limits = True
+
+        if fresh or moving or calc_limits:
+            # Start timing for diagnostics
+            time_passed = time()
+
+            # Seek the correct limit values
+            dynamic_limits = seek_limits(geometries, ignore, moves, frozen, config_limits,
+                                         coarse=data.get_data('COARSE'), fine=data.get_data('FINE'))
+
+            # Calculate and log the time taken to calculate
+            time_passed = (time() - time_passed) * 1000
+            logging.debug("Calculated limits in %d", time_passed)
+
+            # Log the new limits
+            logging.debug("New limits are " + str(dynamic_limits))
+
+            # Set the limits according to the set_limits operating mode
+            if op_mode.set_limits.is_set():
+                # Apply the calculated limits
+                new_limits = dynamic_limits[:]
+            else:
+                # Restore the configuration limits
+                new_limits = config_limits[:]
+
+            # Update the render thread parameters
+            parameters.update_params(dynamic_limits, collisions, time_passed)
+
+            # Update the PVs
+            data.set_data(TIME=time_passed)
+            data.set_data(HI_LIM=[l[1] for l in dynamic_limits], LO_LIM=[l[0] for l in dynamic_limits])
+            data.set_data(TRAVEL=[min([l[0] - m.value(), l[1] - m.value()], key=abs) for l, m in zip(dynamic_limits, frozen)])
+            data.set_data(TRAV_F=[l[1] - m.value() for l, m in zip(dynamic_limits, frozen)])
+            data.set_data(TRAV_R=[l[0] - m.value() for l, m in zip(dynamic_limits, frozen)])
+
+            driver.updatePVs()
+
+            # On the first run, start the renderer
+            if renderer.is_alive() is False:
+                renderer.start()
+
+            calc_limits = False
+        else:
+            # Restore the configuration limits
+            if op_mode.set_limits.is_set() is False:
+                new_limits = config_limits[:]
+
+        # Stop us overloading the limits
+        if not new_limits == old_limits:
+            set_limits(new_limits, pvs)
+
+        old_limits = new_limits[:]
 
         # Exit the program
         if op_mode.close.is_set():
