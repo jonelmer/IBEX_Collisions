@@ -369,9 +369,9 @@ def main():
     monitors = []
     ismoving = []
     for pv in pvs:
-        monitor = Monitor(pv + ".DRBV")
-        monitor.start()
-        monitors.append(monitor)
+        m = Monitor(pv + ".DRBV")
+        m.start()
+        monitors.append(m)
 
         moving = Monitor(pv + ".MOVN")
         moving.start()
@@ -395,6 +395,11 @@ def main():
 
     # Initialise the pv server
     data = pv_server.ServerData()
+    pv_server.pvdb['HI_LIM']['count'] = len(config.pvs)
+    pv_server.pvdb['LO_LIM']['count'] = len(config.pvs)
+    pv_server.pvdb['TRAVEL']['count'] = len(config.pvs)
+    pv_server.pvdb['TRAV_F']['count'] = len(config.pvs)
+    pv_server.pvdb['TRAV_R']['count'] = len(config.pvs)
     pv_server.start_thread(config.control_pv, data, op_mode)
     data.set_data(MSG='Hello world!!??!')
 
@@ -403,7 +408,7 @@ def main():
 
         # Freeze the positions of our current monitors by creating some dummies
         # This stops the threads from trying to reading each monitor sequentially, and holding each other up
-        frozen = [DummyMonitor(monitor.value()) for monitor in monitors]
+        frozen = [DummyMonitor(m.value()) for m in monitors]
 
         # Execute the move
         move_all(frozen, geometries, moves)
@@ -444,6 +449,12 @@ def main():
 
             # Update the render thread parameters
             parameters.update_params(dynamic_limits, collisions, time_passed)
+            data.set_data(HI_LIM=[l[1] for l in dynamic_limits], LO_LIM=[l[0] for l in dynamic_limits])
+
+            data.set_data(TRAVEL=[min([l[0] - m.value(), l[1] - m.value()], key=abs) for l, m in zip(dynamic_limits, frozen)])
+            data.set_data(TRAV_F=[l[1] - m.value() for l, m in zip(dynamic_limits, frozen)])
+            data.set_data(TRAV_R=[l[0] - m.value() for l, m in zip(dynamic_limits, frozen)])
+
 
             # On the first run, start the renderer
             if first_run:

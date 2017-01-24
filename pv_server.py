@@ -39,6 +39,31 @@ pvdb = {
         'count': 1,
         'type': 'int',
     },
+    'HI_LIM': {
+        'count': 1,
+        'type': 'float',
+        'prec': 3,
+    },
+    'LO_LIM': {
+        'count': 1,
+        'type': 'float',
+        'prec': 3,
+    },
+    'TRAVEL': {
+        'count': 1,
+        'type': 'float',
+        'prec': 3,
+    },
+    'TRAV_F': {
+        'count': 1,
+        'type': 'float',
+        'prec': 3,
+    },
+    'TRAV_R': {
+        'count': 1,
+        'type': 'float',
+        'prec': 3,
+    },
 }
 
 logging.basicConfig(level=logging.DEBUG,
