@@ -8,7 +8,6 @@ import logging
 # Use `caget -S` to print a char array as a string
 
 # Configure this env with:
-# `EPICS_CAS_SERVER_PORT=50640`
 # `EPICS_CAS_BEACON_ADDR_LIST=127.255.255.255`
 # `EPICS_CAS_INTF_ADDR_LIST=127.0.0.1`
 
