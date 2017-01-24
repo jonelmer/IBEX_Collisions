@@ -427,6 +427,13 @@ def main():
         # Execute the move
         move_all(frozen, geometries, moves)
 
+        # Check if the oversize has been changed, ahead of any collision calcs
+        if data.get_data('new_data'):
+            data.set_data(new_data=False)
+            for geometry in geometries:
+                geometry.set_size(oversize=driver.getParam('OVERSIZE'))
+            calc_limits = True
+
         # Check for collisions
         collisions = collide(geometries, ignore)
 
@@ -455,12 +462,6 @@ def main():
         moving = any([m.value() for m in ismoving])
 
         new_limits = []
-
-        if data.get_data('new_data'):
-            data.set_data(new_data=False)
-            for geometry in geometries:
-                geometry.set_size(oversize=driver.getParam('OVERSIZE'))
-            calc_limits = True
 
         if fresh or moving or calc_limits:
             # Start timing for diagnostics
