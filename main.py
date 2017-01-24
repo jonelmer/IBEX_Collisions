@@ -13,6 +13,9 @@ import pv_server
 from monitor import Monitor, DummyMonitor
 from move import move_all
 
+# This should be from C:\Instrument\Apps\EPICS\ISIS\inst_servers\master\server_common\loggers\isis_logger.py
+from isis_logger import IsisLogger
+
 
 class GeometryBox(object):
     def __init__(self, space, position=(0, 0, 0), size=(1, 1, 1), color=(1, 1, 1), oversize=1, name=None):
@@ -397,6 +400,9 @@ def main():
     # Need to know if this is the first execution of the main loop
     calc_limits = True
 
+    # Only report for new collisions
+    collision_reported = None
+
     # Initialise the pv server
     data = pv_server.ServerData()
     data.set_data(new_data=False)
@@ -416,6 +422,9 @@ def main():
     driver.setParam('COARSE', config.coarse)
     driver.setParam('FINE', config.fine)
     driver.setParam('NAMES', [g['name'] for g in config.geometries])
+
+    # Start a logger
+    logger = IsisLogger()
 
     # Main loop
     while True:
@@ -446,6 +455,15 @@ def main():
             logging.debug("Collisions on %s", [i for i in np.where(collisions)[0]])
             driver.setParam('MSG', "Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])))
             driver.setParam('SAFE', 0)
+
+            if collision_reported is None:
+                logger.write_to_log("Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])), "MAJOR", "COLLIDE")
+                collision_reported = collisions[:]
+            elif any(np.logical_and(np.logical_not(collision_reported), collisions)):
+                logger.write_to_log("Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])), "MAJOR", "COLLIDE")
+                collision_reported = collisions[:]
+
+
             # Stop the moving motors based on the operating mode auto_stop
             if op_mode.auto_stop.is_set():
                 logging.debug("Stopping motors %s" % [i for i, m in enumerate(ismoving) if m.value()])
@@ -455,6 +473,7 @@ def main():
         else:
             driver.setParam('MSG', "No collisions detected.")
             driver.setParam('SAFE', 1)
+            collision_reported = None
 
         # Check if there have been any changes to the .MOVN monitors
         fresh = any([m.fresh() for m in ismoving])
