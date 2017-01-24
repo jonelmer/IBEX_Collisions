@@ -12,7 +12,6 @@ import logging
 # `EPICS_CAS_BEACON_ADDR_LIST=127.255.255.255`
 # `EPICS_CAS_INTF_ADDR_LIST=127.0.0.1`
 
-prefix = 'TEST:'
 pvdb = {
     'RAND' : {
         'prec' : 3,
@@ -28,6 +27,18 @@ pvdb = {
         'count': 1,
         'type': 'int',
     },
+    'AUTO_STOP': {
+        'count': 1,
+        'type': 'int',
+    },
+    'AUTO_LIMIT': {
+        'count': 1,
+        'type': 'int',
+    },
+    'SAFE': {
+        'count': 1,
+        'type': 'int',
+    },
 }
 
 logging.basicConfig(level=logging.DEBUG,
@@ -35,26 +46,49 @@ logging.basicConfig(level=logging.DEBUG,
                     )
 
 class myDriver(Driver):
-    def __init__(self, data):
+    def __init__(self, data, op_mode):
         super(myDriver, self).__init__()
         self.__data = data
+        self.op_mode = op_mode
 
     def read(self, reason):
+        value = None
         logging.debug("Reading '%s'...", reason)
         if reason == 'RAND':
             value = random.random()
         elif reason == 'MSG':
             value = self.__data.get_data('MSG')
         elif reason == 'MODE':
-            value = self.__data.get_data('MODE')
+            #value = self.__data.get_data('MODE')
+            value = self.op_mode.code
+        elif reason == 'AUTO_STOP':
+            value = int(self.op_mode.auto_stop.is_set())
+        elif reason == 'AUTO_LIMIT':
+            value = int(self.op_mode.set_limits.is_set())
+
         else:
-            value = self.getParam(reason)
+            try:
+                value = self.__data.get_data(reason)
+            except ServerDataException:
+                logging.debug("Asked for data key %s, which doesn't exist" % reason)
+
         return value
 
     def write(self, reason, value):
         status = True
         if reason == 'MODE':
             self.__data.set_data(MODE=value)
+            self.op_mode.code = int(value)
+        elif reason == 'AUTO_STOP':
+            if value == 1:
+                self.op_mode.auto_stop.set()
+            elif value == 0:
+                self.op_mode.auto_stop.clear()
+        elif reason == 'AUTO_LIMIT':
+            if value == 1:
+                self.op_mode.set_limits.set()
+            elif value == 0:
+                self.op_mode.set_limits.clear()
         return status
 
 class ServerDataException(Exception):
@@ -93,7 +127,13 @@ class ServerData(object):
 if __name__ == '__main__':
     pass
 
-def start_thread():
+def start_thread(prefix, data, op_mode):
+
+    empty_data = data.get_data()
+    for key in pvdb:
+        if not key in empty_data:
+            data.set_data(key=None)
+
     server = SimpleServer()
     server.createPV(prefix, pvdb)
     # server.setDebugLevel(4)
@@ -103,12 +143,9 @@ def start_thread():
     server_thread.daemon = True
     server_thread.start()
 
+    driver = myDriver(data, op_mode)
 
-    data = ServerData()
-
-    driver = myDriver(data)
-
-    return data
+    return driver
 
     # process CA transactions
     #while True:

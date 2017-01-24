@@ -311,6 +311,37 @@ class OperatingMode(object):
         # Stop the motors on a collision
         self.auto_stop = threading.Event()
 
+    @property
+    def code(self):
+        code = 0
+        if self.auto_stop.is_set():
+            code |= 0b001
+
+        if self.set_limits.is_set():
+            code |= 0b010
+
+        if self.close.is_set():
+            code |= 0b100
+
+        return code
+
+    @code.setter
+    def code(self, code):
+        if code & 0b001:
+            self.auto_stop.set()
+        else:
+            self.auto_stop.clear()
+
+        if code & 0b010:
+            self.set_limits.set()
+        else:
+            self.set_limits.clear()
+
+        if code & 0b100:
+            self.close.set()
+        else:
+            self.close.clear()
+
 
 # The main routine to execute
 def main():
@@ -363,10 +394,9 @@ def main():
     first_run = True
 
     # Initialise the pv server
-    pv_server.prefix = config.control_pv
-    data = pv_server.start_thread()
+    data = pv_server.ServerData()
+    pv_server.start_thread(config.control_pv, data, op_mode)
     data.set_data(MSG='Hello world!!??!')
-    data.set_data(MODE=0)
 
     # Main loop
     while True:
@@ -436,6 +466,7 @@ def main():
             # Log the collisions
             logging.debug("Collisions on %s", [i for i in np.where(collisions)[0]])
             data.set_data(MSG="Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])))
+            data.set_data(SAFE=0)
             # Stop the moving motors based on the operating mode auto_stop
             if op_mode.auto_stop.is_set():
                 logging.debug("Stopping motors %s" % [i for i, m in enumerate(ismoving) if m.value()])
@@ -445,6 +476,7 @@ def main():
                         set_pv(pv + '.STOP', 1)
         else:
             data.set_data(MSG="No collisions detected.")
+            data.set_data(SAFE=1)
 
         # Exit the program
         if op_mode.close.is_set():
