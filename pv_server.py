@@ -64,6 +64,11 @@ pvdb = {
         'type': 'float',
         'prec': 3,
     },
+    'OVERSIZE': {
+        'count': 1,
+        'type': 'float',
+        'prec': 3,
+    },
 }
 
 logging.basicConfig(level=logging.DEBUG,
@@ -90,7 +95,6 @@ class myDriver(Driver):
             value = int(self.op_mode.auto_stop.is_set())
         elif reason == 'AUTO_LIMIT':
             value = int(self.op_mode.set_limits.is_set())
-
         else:
             try:
                 value = self.__data.get_data(reason)
@@ -114,6 +118,8 @@ class myDriver(Driver):
                 self.op_mode.set_limits.set()
             elif value == 0:
                 self.op_mode.set_limits.clear()
+        elif reason == 'OVERSIZE':
+            self.__data.set_data(OVERSIZE=value, new_oversize=True)
         return status
 
 class ServerDataException(Exception):

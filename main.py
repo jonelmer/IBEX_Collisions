@@ -20,6 +20,7 @@ class GeometryBox(object):
         # Set parameters for drawing the body
         self.color = color
         self.size = list(size)
+        self.oversize = oversize
 
         # Create a box geom for collision detection
         self.geom = ode.GeomBox(space, lengths=[s + 2 + oversize for s in self.size])
@@ -134,7 +135,7 @@ class GeometryBox(object):
             glEnd()
 
     # Set the size of the ODE geometry
-    def set_size(self, x=None, y=None, z=None):
+    def set_size(self, x=None, y=None, z=None, oversize=None):
         # Only need to set the size of dimensions supplied
         if x is not None:
             self.size[0] = x
@@ -142,6 +143,9 @@ class GeometryBox(object):
             self.size[1] = y
         if z is not None:
             self.size[2] = z
+        if oversize is not None:
+            self.oversize = oversize
+        self.geom.setLengths([s + 2 + self.oversize for s in self.size])
 
     # Set the transform for the geometry
     def set_transform(self, transform):
@@ -391,17 +395,20 @@ def main():
     renderer.daemon = True
 
     # Need to know if this is the first execution of the main loop
-    first_run = True
+    calc_limits = True
 
     # Initialise the pv server
     data = pv_server.ServerData()
+    data.set_data(MSG='Hello world!!??!')
+    data.set_data(OVERSIZE=config.oversize)
+    data.set_data(new_oversize=False)
+
     pv_server.pvdb['HI_LIM']['count'] = len(config.pvs)
     pv_server.pvdb['LO_LIM']['count'] = len(config.pvs)
     pv_server.pvdb['TRAVEL']['count'] = len(config.pvs)
     pv_server.pvdb['TRAV_F']['count'] = len(config.pvs)
     pv_server.pvdb['TRAV_R']['count'] = len(config.pvs)
     pv_server.start_thread(config.control_pv, data, op_mode)
-    data.set_data(MSG='Hello world!!??!')
 
     # Main loop
     while True:
@@ -423,12 +430,18 @@ def main():
 
         new_limits = []
 
-        if fresh or moving or first_run:
+        if data.get_data('new_oversize'):
+            for geometry in geometries:
+                geometry.set_size(oversize=data.get_data('OVERSIZE'))
+            calc_limits = True
+
+        if fresh or moving or calc_limits:
             # Start timing for diagnostics
             time_passed = time()
 
             # Seek the correct limit values
-            dynamic_limits = seek_limits(geometries, ignore, moves, frozen, config_limits, coarse=config.coarse, fine=config.fine)
+            dynamic_limits = seek_limits(geometries, ignore, moves, frozen, config_limits,
+                                         coarse=config.coarse, fine=config.fine)
 
             # Calculate and log the time taken to calculate
             time_passed = (time() - time_passed) * 1000
@@ -455,11 +468,11 @@ def main():
             data.set_data(TRAV_F=[l[1] - m.value() for l, m in zip(dynamic_limits, frozen)])
             data.set_data(TRAV_R=[l[0] - m.value() for l, m in zip(dynamic_limits, frozen)])
 
-
             # On the first run, start the renderer
-            if first_run:
+            if renderer.is_alive() is False:
                 renderer.start()
-                first_run = False
+
+            calc_limits = False
         else:
             # Restore the configuration limits
             if op_mode.set_limits.is_set() is False:
