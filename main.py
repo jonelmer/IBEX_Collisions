@@ -456,13 +456,10 @@ def main():
             driver.setParam('MSG', "Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])))
             driver.setParam('SAFE', 0)
 
-            if collision_reported is None:
+            # Log to the IOC log
+            if collision_reported is None or not collisions == collision_reported:
                 logger.write_to_log("Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])), "MAJOR", "COLLIDE")
                 collision_reported = collisions[:]
-            elif any(np.logical_and(np.logical_not(collision_reported), collisions)):
-                logger.write_to_log("Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])), "MAJOR", "COLLIDE")
-                collision_reported = collisions[:]
-
 
             # Stop the moving motors based on the operating mode auto_stop
             if op_mode.auto_stop.is_set():
