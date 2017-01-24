@@ -32,6 +32,7 @@ pvdb = {
     'MODE': {
         'count': 1,
         'type': 'int',
+        'scan': 1,
     },
     'AUTO_STOP': {
         'count': 1,
@@ -108,37 +109,32 @@ class myDriver(Driver):
         self.op_mode = op_mode
 
     def read(self, reason):
-        value = None
-        logging.debug("Reading '%s'...", reason)
+        # logging.debug("Reading '%s'...", reason)
         if reason == 'RAND':
             value = random.random()
-        elif reason == 'MSG':
-            value = self.__data.get_data('MSG')
         elif reason == 'MODE':
-            #value = self.__data.get_data('MODE')
-            value = self.op_mode.code
+            self.setParam(reason, self.op_mode.code)
+            value = self.getParam(reason)
         elif reason == 'AUTO_STOP':
             value = int(self.op_mode.auto_stop.is_set())
         elif reason == 'AUTO_LIMIT':
             value = int(self.op_mode.set_limits.is_set())
         else:
-            try:
-                value = self.__data.get_data(reason)
-            except ServerDataException:
-                logging.debug("Asked for data key %s, which doesn't exist" % reason)
+            value = self.getParam(reason)
 
         return value
 
     def write(self, reason, value):
         status = True
         if reason == 'MODE':
-            self.__data.set_data(MODE=value)
             self.op_mode.code = int(value)
+            self.setParam(reason, int(value))
         elif reason == 'AUTO_STOP':
             if value == 1:
                 self.op_mode.auto_stop.set()
             elif value == 0:
                 self.op_mode.auto_stop.clear()
+            self.setParam('MODE', self.op_mode.code)
         elif reason == 'AUTO_LIMIT':
             if value == 1:
                 self.op_mode.set_limits.set()
@@ -146,10 +142,15 @@ class myDriver(Driver):
                 self.op_mode.set_limits.clear()
         elif reason == 'OVERSIZE':
             self.__data.set_data(OVERSIZE=value, COARSE=4*value, new_data=True)
+            self.setParam(reason, value)
+            self.setParam('COARSE', 4 * value)
         elif reason == 'COARSE':
             self.__data.set_data(OVERSIZE=value/4, COARSE=value, new_data=True)
+            self.setParam(reason, value)
+            self.setParam('OVERSIZE', value / 4)
         elif reason == 'FINE':
             self.__data.set_data(FINE=value, new_data=True)
+            self.setParam(reason, value)
         return status
 
 class ServerDataException(Exception):

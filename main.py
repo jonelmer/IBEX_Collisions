@@ -399,12 +399,7 @@ def main():
 
     # Initialise the pv server
     data = pv_server.ServerData()
-    data.set_data(MSG='Hello world!!??!')
-    data.set_data(OVERSIZE=config.oversize)
-    data.set_data(COARSE=config.coarse)
-    data.set_data(FINE=config.fine)
     data.set_data(new_data=False)
-    data.set_data(NAMES=[g['name'] for g in config.geometries])
 
     pv_server.pvdb['HI_LIM']['count'] = len(config.pvs)
     pv_server.pvdb['LO_LIM']['count'] = len(config.pvs)
@@ -415,6 +410,12 @@ def main():
     pv_server.pvdb['COLLIDED']['count'] = len(config.geometries)
 
     driver = pv_server.start_thread(config.control_pv, data, op_mode)
+
+    driver.setParam('MSG', 'Hello world!!??!')
+    driver.setParam('OVERSIZE', config.oversize)
+    driver.setParam('COARSE', config.coarse)
+    driver.setParam('FINE', config.fine)
+    driver.setParam('NAMES', [g['name'] for g in config.geometries])
 
     # Main loop
     while True:
@@ -430,24 +431,23 @@ def main():
         collisions = collide(geometries, ignore)
 
         # Get some data to the user:
-        data.set_data(COLLIDED=[int(c) for c in collisions])
+        driver.setParam('COLLIDED', [int(c) for c in collisions])
 
         # If there has been a collision:
         if any(collisions):
             # Log the collisions
             logging.debug("Collisions on %s", [i for i in np.where(collisions)[0]])
-            data.set_data(MSG="Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])))
-            data.set_data(SAFE=0)
+            driver.setParam('MSG', "Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])))
+            driver.setParam('SAFE', 0)
             # Stop the moving motors based on the operating mode auto_stop
             if op_mode.auto_stop.is_set():
                 logging.debug("Stopping motors %s" % [i for i, m in enumerate(ismoving) if m.value()])
                 for moving, pv in zip(ismoving, pvs):
                     if moving.value():
-                        # print "Stop %s" % pv
                         set_pv(pv + '.STOP', 1)
         else:
-            data.set_data(MSG="No collisions detected.")
-            data.set_data(SAFE=1)
+            driver.setParam('MSG', "No collisions detected.")
+            driver.setParam('SAFE', 1)
 
         # Check if there have been any changes to the .MOVN monitors
         fresh = any([m.fresh() for m in ismoving])
@@ -459,7 +459,7 @@ def main():
         if data.get_data('new_data'):
             data.set_data(new_data=False)
             for geometry in geometries:
-                geometry.set_size(oversize=data.get_data('OVERSIZE'))
+                geometry.set_size(oversize=driver.getParam('OVERSIZE'))
             calc_limits = True
 
         if fresh or moving or calc_limits:
@@ -468,7 +468,7 @@ def main():
 
             # Seek the correct limit values
             dynamic_limits = seek_limits(geometries, ignore, moves, frozen, config_limits,
-                                         coarse=data.get_data('COARSE'), fine=data.get_data('FINE'))
+                                         coarse=driver.getParam('COARSE'), fine=driver.getParam('FINE'))
 
             # Calculate and log the time taken to calculate
             time_passed = (time() - time_passed) * 1000
@@ -488,12 +488,13 @@ def main():
             # Update the render thread parameters
             parameters.update_params(dynamic_limits, collisions, time_passed)
 
-            # Update the PVs
-            data.set_data(TIME=time_passed)
-            data.set_data(HI_LIM=[l[1] for l in dynamic_limits], LO_LIM=[l[0] for l in dynamic_limits])
-            data.set_data(TRAVEL=[min([l[0] - m.value(), l[1] - m.value()], key=abs) for l, m in zip(dynamic_limits, frozen)])
-            data.set_data(TRAV_F=[l[1] - m.value() for l, m in zip(dynamic_limits, frozen)])
-            data.set_data(TRAV_R=[l[0] - m.value() for l, m in zip(dynamic_limits, frozen)])
+            # # Update the PVs
+            driver.setParam('TIME', time_passed)
+            driver.setParam('HI_LIM', [l[1] for l in dynamic_limits])
+            driver.setParam('LO_LIM', [l[0] for l in dynamic_limits])
+            driver.setParam('TRAVEL', [min([l[0] - m.value(), l[1] - m.value()], key=abs) for l, m in zip(dynamic_limits, frozen)])
+            driver.setParam('TRAV_F', [l[1] - m.value() for l, m in zip(dynamic_limits, frozen)])
+            driver.setParam('TRAV_R', [l[0] - m.value() for l, m in zip(dynamic_limits, frozen)])
 
             driver.updatePVs()
 
