@@ -388,6 +388,7 @@ def draw(renderer, monitors):
             # geometry.render()
             render_box(geometry)
 
+
     # Set the HUD normal to the camera's position - gives us full illumination?
     glNormal3dv([0., -1., 0.])
 
