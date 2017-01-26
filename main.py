@@ -4,7 +4,6 @@ from time import sleep, time
 
 import numpy as np
 import ode
-from OpenGL.GL import *
 from genie_python.genie_startup import *
 
 import config
@@ -32,111 +31,6 @@ class GeometryBox(object):
         # A friendly name
         self.name = name
 
-    fill = False
-
-    num_faces = 6
-    num_edges = 12
-
-    vertices = [(-0.5, -0.5, 0.5),
-                (0.5, -0.5, 0.5),
-                (0.5, 0.5, 0.5),
-                (-0.5, 0.5, 0.5),
-                (-0.5, -0.5, -0.5),
-                (0.5, -0.5, -0.5),
-                (0.5, 0.5, -0.5),
-                (-0.5, 0.5, -0.5)]
-
-    normals = [(0.0, 0.0, +1.0),  # top
-               (0.0, 0.0, -1.0),  # bot
-               (-1.0, 0.0, 0.0),  # left
-               (+1.0, 0.0, 0.0),  # right
-               (0.0, +1.0, 0.0),  # front
-               (0.0, -1.0, 0.0),  # back
-               ]
-
-    vertex_indices = [(0, 1, 2, 3),  # front
-                      (4, 5, 6, 7),  # back
-                      (1, 5, 6, 2),  # right
-                      (0, 4, 7, 3),  # left
-                      (3, 2, 6, 7),  # top
-                      (0, 1, 5, 4)]  # bottom
-
-    edge_indices = [(0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (3, 0),
-                    (4, 5),
-                    (5, 6),
-                    (6, 7),
-                    (7, 4),
-                    (0, 4),
-                    (1, 5),
-                    (2, 6),
-                    (3, 7)]
-
-    # Render the geometry - can supply color to override the geometry's own color e.g. make it red when collided
-    def render(self, color=None):
-        # Set the color for rendering
-        if color:
-            glColor(color)
-        else:
-            glColor(self.color)
-
-        # Adjust all the vertices so that the cube is at self.position
-        vertices = np.array(self.vertices)
-        vertices = [v * self.size for v in vertices]
-
-        # Get the position and rotation of the geometry
-        x, y, z = self.geom.getPosition()
-        r = self.geom.getRotation()
-
-        # Get the transformation matrix for the geometry
-        rot = [[r[0], r[3], r[6], 0.],
-               [r[1], r[4], r[7], 0.],
-               [r[2], r[5], r[8], 0.],
-               [x, y, z, 1.0]]
-        # And put it into an numpy array
-        rot = np.array(rot)
-
-        # If we want a filled in cube:
-        if self.fill:
-            # Start drawing quads
-            glBegin(GL_QUADS)
-
-            # Draw all 6 faces of the cube
-            for face_no in xrange(self.num_faces):
-                # Calculate and apply the normal - for lighting
-                normal = np.array(self.normals[face_no]).T
-                rotated = np.dot(normal, rot[:3, :3].T)
-                glNormal3dv(rotated)
-
-                # Calculate and draw each vertex
-                for i in self.vertex_indices[face_no]:
-                    point = np.array([vertices[i][0], vertices[i][1], vertices[i][2], 1]).T
-                    glVertex(np.dot(point, rot))
-
-            # Stop drawing quads
-            glEnd()
-
-        # We want a wire frame:
-        else:
-            glNormal3dv([0, 0, 1])
-            # Start drawing lines
-            glBegin(GL_LINES)
-
-            # Draw all 12 edges of the cube
-            for edge_no in xrange(self.num_edges):
-                # Get the vertices for each edge
-                vertex_index = self.edge_indices[edge_no]
-
-                # Calculate and draw each vertex
-                for i in vertex_index:
-                    point = np.array([vertices[i][0], vertices[i][1], vertices[i][2], 1]).T
-                    glVertex(np.dot(point, rot))
-
-            # Stop drawing lines
-            glEnd()
-
     # Set the size of the ODE geometry
     def set_size(self, x=None, y=None, z=None, oversize=None):
         # Only need to set the size of dimensions supplied
@@ -156,7 +50,7 @@ class GeometryBox(object):
         rot, pos = transform.split()
 
         # Reshape the rotation matrix into a ODE friendly format
-        rot = np.reshape(rot.T, 9, 1)
+        rot = np.reshape(rot, 9)
 
         # Apply the translation and rotation to the ODE geometry
         self.geom.setPosition(pos)
@@ -178,18 +72,18 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
         start = dummies[i].value()
 
         # Get the max and min configuration limits
-        min = np.min(limits[i])
-        max = np.max(limits[i])
+        min_limit = np.min(limits[i])
+        max_limit = np.max(limits[i])
 
         # Find the lower limit
-        if min >= start:
+        if min_limit >= start:
             # Already exceeded the configuration limit!!
-            dynamic_limits[i][0] = min
+            dynamic_limits[i][0] = min_limit
         else:
             # Create a sequence from start, to the configuration minimum, in multiples of coarse
-            sequence = np.arange(start, min, -coarse)
+            sequence = np.arange(start, min_limit, -coarse)
             # Make sure the last step is the limit
-            sequence = np.append(sequence, min)
+            sequence = np.append(sequence, min_limit)
 
             # Search for a collision within the sequence
             step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
@@ -200,9 +94,9 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
                 dynamic_limits[i][0] = start
 
             # If there were no collisions, then don't bother doing a fine search
-            elif step == min and not collided:
+            elif step == min_limit and not collided:
                 # We didn't find any collisions so use the limit
-                dynamic_limits[i][0] = min
+                dynamic_limits[i][0] = min_limit
 
             else:
                 # There is a collision between step+coarse and step
@@ -216,14 +110,14 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
                 dynamic_limits[i][0] = step + fine
 
         # Find the upper limit
-        if max <= start:
+        if max_limit <= start:
             # Already exceeded the configuration limit!!
-            dynamic_limits[i][1] = max
+            dynamic_limits[i][1] = max_limit
         else:
             # Create a sequence from start, to the configuration maximum, in multiples of coarse
-            sequence = np.arange(start, max, coarse)
+            sequence = np.arange(start, max_limit, coarse)
             # Make sure the last step is the limit
-            sequence = np.append(sequence, max)
+            sequence = np.append(sequence, max_limit)
 
             # Search for a collision within the sequence
             step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
@@ -234,9 +128,9 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
                 dynamic_limits[i][1] = start
 
             # If there were no collisions, then don't bother doing a fine search
-            elif step == max and not collided:
+            elif step == max_limit and not collided:
                 # We didn't find any collisions so use the limit
-                dynamic_limits[i][1] = max
+                dynamic_limits[i][1] = max_limit
 
             else:
                 # There is a collision between step-coarse and step
@@ -250,10 +144,10 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
                 dynamic_limits[i][1] = step - fine
 
         # Cap the limits within the configuration limits
-        if dynamic_limits[i][0] < min:
-            dynamic_limits[i][0] = min
-        if dynamic_limits[i][1] > max:
-            dynamic_limits[i][1] = max
+        if dynamic_limits[i][0] < min_limit:
+            dynamic_limits[i][0] = min_limit
+        if dynamic_limits[i][1] > max_limit:
+            dynamic_limits[i][1] = max_limit
 
     return dynamic_limits
 
@@ -451,14 +345,17 @@ def main():
 
         # If there has been a collision:
         if any(collisions):
+            # Message:
+            msg = "Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]]))
+
             # Log the collisions
             logging.debug("Collisions on %s", [i for i in np.where(collisions)[0]])
-            driver.setParam('MSG', "Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])))
+            driver.setParam('MSG', msg)
             driver.setParam('SAFE', 0)
 
             # Log to the IOC log
             if collision_reported is None or not collisions == collision_reported:
-                logger.write_to_log("Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])), "MAJOR", "COLLIDE")
+                logger.write_to_log(msg, "MAJOR", "COLLIDE")
                 collision_reported = collisions[:]
 
             # Stop the moving motors based on the operating mode auto_stop
@@ -509,7 +406,8 @@ def main():
             driver.setParam('TIME', time_passed)
             driver.setParam('HI_LIM', [l[1] for l in dynamic_limits])
             driver.setParam('LO_LIM', [l[0] for l in dynamic_limits])
-            driver.setParam('TRAVEL', [min([l[0] - m.value(), l[1] - m.value()], key=abs) for l, m in zip(dynamic_limits, frozen)])
+            driver.setParam('TRAVEL', [min([l[0] - m.value(), l[1] - m.value()], key=abs)
+                                       for l, m in zip(dynamic_limits, frozen)])
             driver.setParam('TRAV_F', [l[1] - m.value() for l, m in zip(dynamic_limits, frozen)])
             driver.setParam('TRAV_R', [l[0] - m.value() for l, m in zip(dynamic_limits, frozen)])
 
