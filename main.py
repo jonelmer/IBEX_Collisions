@@ -4,7 +4,6 @@ from time import sleep, time
 
 import numpy as np
 import ode
-from OpenGL.GL import *
 from genie_python.genie_startup import *
 
 import config
@@ -34,7 +33,6 @@ class GeometryBox(object):
 
     fill = False
 
-
     # Set the size of the ODE geometry
     def set_size(self, x=None, y=None, z=None, oversize=None):
         # Only need to set the size of dimensions supplied
@@ -54,7 +52,7 @@ class GeometryBox(object):
         rot, pos = transform.split()
 
         # Reshape the rotation matrix into a ODE friendly format
-        rot = np.reshape(rot.T, 9, 1)
+        rot = np.reshape(rot.T, 9)
 
         # Apply the translation and rotation to the ODE geometry
         self.geom.setPosition(pos)
@@ -76,18 +74,18 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
         start = dummies[i].value()
 
         # Get the max and min configuration limits
-        min = np.min(limits[i])
-        max = np.max(limits[i])
+        min_limit = np.min(limits[i])
+        max_limit = np.max(limits[i])
 
         # Find the lower limit
-        if min >= start:
+        if min_limit >= start:
             # Already exceeded the configuration limit!!
-            dynamic_limits[i][0] = min
+            dynamic_limits[i][0] = min_limit
         else:
             # Create a sequence from start, to the configuration minimum, in multiples of coarse
-            sequence = np.arange(start, min, -coarse)
+            sequence = np.arange(start, min_limit, -coarse)
             # Make sure the last step is the limit
-            sequence = np.append(sequence, min)
+            sequence = np.append(sequence, min_limit)
 
             # Search for a collision within the sequence
             step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
@@ -98,9 +96,9 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
                 dynamic_limits[i][0] = start
 
             # If there were no collisions, then don't bother doing a fine search
-            elif step == min and not collided:
+            elif step == min_limit and not collided:
                 # We didn't find any collisions so use the limit
-                dynamic_limits[i][0] = min
+                dynamic_limits[i][0] = min_limit
 
             else:
                 # There is a collision between step+coarse and step
@@ -114,14 +112,14 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
                 dynamic_limits[i][0] = step + fine
 
         # Find the upper limit
-        if max <= start:
+        if max_limit <= start:
             # Already exceeded the configuration limit!!
-            dynamic_limits[i][1] = max
+            dynamic_limits[i][1] = max_limit
         else:
             # Create a sequence from start, to the configuration maximum, in multiples of coarse
-            sequence = np.arange(start, max, coarse)
+            sequence = np.arange(start, max_limit, coarse)
             # Make sure the last step is the limit
-            sequence = np.append(sequence, max)
+            sequence = np.append(sequence, max_limit)
 
             # Search for a collision within the sequence
             step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
@@ -132,9 +130,9 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
                 dynamic_limits[i][1] = start
 
             # If there were no collisions, then don't bother doing a fine search
-            elif step == max and not collided:
+            elif step == max_limit and not collided:
                 # We didn't find any collisions so use the limit
-                dynamic_limits[i][1] = max
+                dynamic_limits[i][1] = max_limit
 
             else:
                 # There is a collision between step-coarse and step
@@ -148,10 +146,10 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
                 dynamic_limits[i][1] = step - fine
 
         # Cap the limits within the configuration limits
-        if dynamic_limits[i][0] < min:
-            dynamic_limits[i][0] = min
-        if dynamic_limits[i][1] > max:
-            dynamic_limits[i][1] = max
+        if dynamic_limits[i][0] < min_limit:
+            dynamic_limits[i][0] = min_limit
+        if dynamic_limits[i][1] > max_limit:
+            dynamic_limits[i][1] = max_limit
 
     return dynamic_limits
 
@@ -349,14 +347,17 @@ def main():
 
         # If there has been a collision:
         if any(collisions):
+            # Message:
+            msg = "Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]]))
+
             # Log the collisions
             logging.debug("Collisions on %s", [i for i in np.where(collisions)[0]])
-            driver.setParam('MSG', "Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])))
+            driver.setParam('MSG', msg)
             driver.setParam('SAFE', 0)
 
             # Log to the IOC log
             if collision_reported is None or not collisions == collision_reported:
-                logger.write_to_log("Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]])), "MAJOR", "COLLIDE")
+                logger.write_to_log(msg, "MAJOR", "COLLIDE")
                 collision_reported = collisions[:]
 
             # Stop the moving motors based on the operating mode auto_stop
@@ -407,7 +408,8 @@ def main():
             driver.setParam('TIME', time_passed)
             driver.setParam('HI_LIM', [l[1] for l in dynamic_limits])
             driver.setParam('LO_LIM', [l[0] for l in dynamic_limits])
-            driver.setParam('TRAVEL', [min([l[0] - m.value(), l[1] - m.value()], key=abs) for l, m in zip(dynamic_limits, frozen)])
+            driver.setParam('TRAVEL', [min([l[0] - m.value(), l[1] - m.value()], key=abs)
+                                       for l, m in zip(dynamic_limits, frozen)])
             driver.setParam('TRAV_F', [l[1] - m.value() for l, m in zip(dynamic_limits, frozen)])
             driver.setParam('TRAV_R', [l[0] - m.value() for l, m in zip(dynamic_limits, frozen)])
 
