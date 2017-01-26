@@ -263,6 +263,109 @@ def text(x, y, string, color=(0.4, 0.4, 0.4), align="left"):
 
     return textSurface.get_width() + x
 
+num_faces = 6
+num_edges = 12
+
+vertices = np.array([(-0.5, -0.5, 0.5),
+                     (0.5, -0.5, 0.5),
+                     (0.5, 0.5, 0.5),
+                     (-0.5, 0.5, 0.5),
+                     (-0.5, -0.5, -0.5),
+                     (0.5, -0.5, -0.5),
+                     (0.5, 0.5, -0.5),
+                     (-0.5, 0.5, -0.5)])
+
+normals = [(0.0, 0.0, +1.0),  # top
+           (0.0, 0.0, -1.0),  # bot
+           (-1.0, 0.0, 0.0),  # left
+           (+1.0, 0.0, 0.0),  # right
+           (0.0, +1.0, 0.0),  # front
+           (0.0, -1.0, 0.0),  # back
+           ]
+
+vertex_indices = [(0, 1, 2, 3),  # front
+                  (4, 5, 6, 7),  # back
+                  (1, 5, 6, 2),  # right
+                  (0, 4, 7, 3),  # left
+                  (3, 2, 6, 7),  # top
+                  (0, 1, 5, 4)]  # bottom
+
+edge_indices = [(0, 1),
+                (1, 2),
+                (2, 3),
+                (3, 0),
+                (4, 5),
+                (5, 6),
+                (6, 7),
+                (7, 4),
+                (0, 4),
+                (1, 5),
+                (2, 6),
+                (3, 7)]
+
+
+# Render the geometry - can supply color to override the geometry's own color e.g. make it red when collided
+def box(geometry, color=None):
+    # Set the color for rendering
+    if color:
+        glColor(color)
+    else:
+        glColor(geometry.color)
+
+    # Adjust all the vertices so that the cube is at self.position
+    box_vertices = [v * geometry.size for v in vertices]
+
+    # Get the position and rotation of the geometry
+    x, y, z = geometry.geom.getPosition()
+    r = geometry.geom.getRotation()
+
+    # Get the transformation matrix for the geometry
+    rot = [[r[0], r[3], r[6], 0.],
+           [r[1], r[4], r[7], 0.],
+           [r[2], r[5], r[8], 0.],
+           [x, y, z, 1.0]]
+    # And put it into an numpy array
+    rot = np.array(rot)
+
+    # If we want a filled in cube:
+    if geometry.fill:
+        # Start drawing quads
+        glBegin(GL_QUADS)
+
+        # Draw all 6 faces of the cube
+        for face_no in xrange(num_faces):
+            # Calculate and apply the normal - for lighting
+            normal = np.array(normals[face_no]).T
+            rotated = np.dot(normal, rot[:3, :3].T)
+            glNormal3dv(rotated)
+
+            # Calculate and draw each vertex
+            for i in vertex_indices[face_no]:
+                point = np.array([box_vertices[i][0], box_vertices[i][1], box_vertices[i][2], 1]).T
+                glVertex(np.dot(point, rot))
+
+        # Stop drawing quads
+        glEnd()
+
+    # We want a wire frame:
+    else:
+        glNormal3dv([0, 0, 1])
+        # Start drawing lines
+        glBegin(GL_LINES)
+
+        # Draw all 12 edges of the cube
+        for edge_no in xrange(num_edges):
+            # Get the vertices for each edge
+            vertex_index = edge_indices[edge_no]
+
+            # Calculate and draw each vertex
+            for i in vertex_index:
+                point = np.array([box_vertices[i][0], box_vertices[i][1], box_vertices[i][2], 1]).T
+                glVertex(np.dot(point, rot))
+
+        # Stop drawing lines
+        glEnd()
+
 
 def draw(renderer, monitors):
     softlimits, collisions, duration = renderer.parameters.get_params()
@@ -285,9 +388,9 @@ def draw(renderer, monitors):
     # Render!
     for geometry, collided in zip(renderer.geometries, collisions):
         if collided:
-            geometry.render((0.8, 0, 0))
+            box(geometry, (0.8, 0, 0))
         else:
-            geometry.render()
+            box(geometry)
 
     # Set the HUD normal to the camera's position - gives us full illumination?
     glNormal3dv([0., -1., 0.])
