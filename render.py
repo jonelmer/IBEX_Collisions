@@ -1,4 +1,5 @@
 import pygame
+import os
 from OpenGL.GL import *
 from OpenGL.GL.VERSION.GL_1_0 import glLoadMatrixd
 from OpenGL.GL.exceptional import glBegin, glEnd
@@ -41,7 +42,6 @@ logging.basicConfig(level=logging.DEBUG,
 
 screensize = (820, 720)
 
-import os
 os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (5, 25)
 
 clock = pygame.time.Clock()
@@ -52,7 +52,6 @@ autoRestart = False
 
 heartbeat = 0
 time_passed = 0
-
 
 font = None
 
@@ -111,12 +110,8 @@ class Renderer(threading.Thread):
     def __init__(self, parameters, geometries, colors, monitors, pvs, moves, op_mode):
         threading.Thread.__init__(self, name="Renderer")
 
-        #self.geometries = [copy(geometry) for geometry in geometries]
+        # self.geometries = [copy(geometry) for geometry in geometries]
         self.geometries = geometries
-
-        for geometry in self.geometries:
-            geometry.fill = True
-            pass
 
         self.colors = colors
         self.monitors = monitors
@@ -135,7 +130,6 @@ class Renderer(threading.Thread):
 
 
 def check_controls(renderer):
-
     global camera_transform, stopMotors, autoRestart, time_passed
 
     for event in pygame.event.get():
@@ -246,65 +240,65 @@ def text(x, y, string, color=(0.4, 0.4, 0.4), align="left"):
     glClear(GL_DEPTH_BUFFER_BIT)
     glColor(color)
 
-    textSurface = font.render(string, True, color, (0, 0, 0, 255))
-    textData = pygame.image.tostring(textSurface, "RGBA", True)
+    text_surface = font.render(string, True, color, (0, 0, 0, 255))
+    text_data = pygame.image.tostring(text_surface, "RGBA", True)
 
     if align is "right":
-        glRasterPos2d(x - textSurface.get_width(), y)
+        glRasterPos2d(x - text_surface.get_width(), y)
     else:
         glRasterPos2d(x, y)
 
-    glDrawPixels(textSurface.get_width(), textSurface.get_height(), GL_RGBA, GL_UNSIGNED_BYTE, textData)
+    glDrawPixels(text_surface.get_width(), text_surface.get_height(), GL_RGBA, GL_UNSIGNED_BYTE, text_data)
 
     glMatrixMode(GL_PROJECTION)
     glPopMatrix()
     glMatrixMode(GL_MODELVIEW)
 
-    return textSurface.get_width() + x
-
-num_faces = 6
-num_edges = 12
-
-vertices = np.array([(-0.5, -0.5, 0.5),
-                     (0.5, -0.5, 0.5),
-                     (0.5, 0.5, 0.5),
-                     (-0.5, 0.5, 0.5),
-                     (-0.5, -0.5, -0.5),
-                     (0.5, -0.5, -0.5),
-                     (0.5, 0.5, -0.5),
-                     (-0.5, 0.5, -0.5)])
-
-normals = [(0.0, 0.0, +1.0),  # top
-           (0.0, 0.0, -1.0),  # bot
-           (-1.0, 0.0, 0.0),  # left
-           (+1.0, 0.0, 0.0),  # right
-           (0.0, +1.0, 0.0),  # front
-           (0.0, -1.0, 0.0),  # back
-           ]
-
-vertex_indices = [(0, 1, 2, 3),  # front
-                  (4, 5, 6, 7),  # back
-                  (1, 5, 6, 2),  # right
-                  (0, 4, 7, 3),  # left
-                  (3, 2, 6, 7),  # top
-                  (0, 1, 5, 4)]  # bottom
-
-edge_indices = [(0, 1),
-                (1, 2),
-                (2, 3),
-                (3, 0),
-                (4, 5),
-                (5, 6),
-                (6, 7),
-                (7, 4),
-                (0, 4),
-                (1, 5),
-                (2, 6),
-                (3, 7)]
+    return text_surface.get_width() + x
 
 
 # Render the geometry - can supply color to override the geometry's own color e.g. make it red when collided
-def box(geometry, color=None):
+def render_box(geometry, color=None, fill=True):
+    num_faces = 6
+    num_edges = 12
+
+    vertices = [(-0.5, -0.5, 0.5),
+                (0.5, -0.5, 0.5),
+                (0.5, 0.5, 0.5),
+                (-0.5, 0.5, 0.5),
+                (-0.5, -0.5, -0.5),
+                (0.5, -0.5, -0.5),
+                (0.5, 0.5, -0.5),
+                (-0.5, 0.5, -0.5)]
+
+    normals = [(0.0, 0.0, +1.0),  # top
+               (0.0, 0.0, -1.0),  # bot
+               (-1.0, 0.0, 0.0),  # left
+               (+1.0, 0.0, 0.0),  # right
+               (0.0, +1.0, 0.0),  # front
+               (0.0, -1.0, 0.0),  # back
+               ]
+
+    vertex_indices = [(0, 1, 2, 3),  # front
+                      (4, 5, 6, 7),  # back
+                      (1, 5, 6, 2),  # right
+                      (0, 4, 7, 3),  # left
+                      (3, 2, 6, 7),  # top
+                      (0, 1, 5, 4)]  # bottom
+
+    edge_indices = [(0, 1),
+                    (1, 2),
+                    (2, 3),
+                    (3, 0),
+                    (4, 5),
+                    (5, 6),
+                    (6, 7),
+                    (7, 4),
+                    (0, 4),
+                    (1, 5),
+                    (2, 6),
+                    (3, 7)]
+
     # Set the color for rendering
     if color:
         glColor(color)
@@ -312,7 +306,8 @@ def box(geometry, color=None):
         glColor(geometry.color)
 
     # Adjust all the vertices so that the cube is at self.position
-    box_vertices = [v * geometry.size for v in vertices]
+    vertices = np.array(vertices)
+    vertices = [v * geometry.size for v in vertices]
 
     # Get the position and rotation of the geometry
     x, y, z = geometry.geom.getPosition()
@@ -327,7 +322,7 @@ def box(geometry, color=None):
     rot = np.array(rot)
 
     # If we want a filled in cube:
-    if geometry.fill:
+    if fill:
         # Start drawing quads
         glBegin(GL_QUADS)
 
@@ -340,7 +335,7 @@ def box(geometry, color=None):
 
             # Calculate and draw each vertex
             for i in vertex_indices[face_no]:
-                point = np.array([box_vertices[i][0], box_vertices[i][1], box_vertices[i][2], 1]).T
+                point = np.array([vertices[i][0], vertices[i][1], vertices[i][2], 1]).T
                 glVertex(np.dot(point, rot))
 
         # Stop drawing quads
@@ -359,7 +354,7 @@ def box(geometry, color=None):
 
             # Calculate and draw each vertex
             for i in vertex_index:
-                point = np.array([box_vertices[i][0], box_vertices[i][1], box_vertices[i][2], 1]).T
+                point = np.array([vertices[i][0], vertices[i][1], vertices[i][2], 1]).T
                 glVertex(np.dot(point, rot))
 
         # Stop drawing lines
@@ -387,9 +382,12 @@ def draw(renderer, monitors):
     # Render!
     for geometry, collided in zip(renderer.geometries, collisions):
         if collided:
-            box(geometry, (0.8, 0, 0))
+            # geometry.render((0.8, 0, 0))
+            render_box(geometry, (0.8, 0, 0))
         else:
-            box(geometry)
+            # geometry.render()
+            render_box(geometry)
+
 
     # Set the HUD normal to the camera's position - gives us full illumination?
     glNormal3dv([0., -1., 0.])
@@ -433,13 +431,13 @@ def draw(renderer, monitors):
         text(80 * 3, 70 + (30 * i), "%.2f" % limit[1], renderer.colors[i % len(renderer.colors)], align="right")
 
     if duration > 0:
-        text(screensize[0]-10, screensize[1]-45, "%.0f" % duration, align="right")
+        text(screensize[0] - 10, screensize[1] - 45, "%.0f" % duration, align="right")
 
-    text(screensize[0]-10, screensize[1]-25, "%.0f" % time_passed, align="right")
+    text(screensize[0] - 10, screensize[1] - 25, "%.0f" % time_passed, align="right")
 
     # Show a heartbeat bar
     heartticks = 100
-    square(0, screensize[1]-5, screensize[0] * heartbeat / heartticks, 5, (0.3, 0.3, 0.3))
+    square(0, screensize[1] - 5, screensize[0] * heartbeat / heartticks, 5, (0.3, 0.3, 0.3))
     if heartbeat > heartticks:
         heartbeat = 0
         # Need to return for sensible profiling
@@ -457,7 +455,6 @@ def loop(renderer, monitors):
     check_controls(renderer)
     if renderer.op_mode.close.is_set() is False:
         if renderer.parameters.stale is False:
-
             # wait for fresh values??
             draw(renderer, monitors)
 
@@ -484,15 +481,5 @@ class RenderParams(object):
     def get_params(self):
         with self.lock:
             logging.debug("Acquired lock for read")
-            #self.stale = True
+            # self.stale = True
             return self.softlimits, self.collisions, self.duration
-
-
-
-
-
-
-
-
-
-

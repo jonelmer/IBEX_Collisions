@@ -31,8 +31,6 @@ class GeometryBox(object):
         # A friendly name
         self.name = name
 
-    fill = False
-
     # Set the size of the ODE geometry
     def set_size(self, x=None, y=None, z=None, oversize=None):
         # Only need to set the size of dimensions supplied
@@ -52,7 +50,7 @@ class GeometryBox(object):
         rot, pos = transform.split()
 
         # Reshape the rotation matrix into a ODE friendly format
-        rot = np.reshape(rot.T, 9)
+        rot = np.reshape(rot, 9)
 
         # Apply the translation and rotation to the ODE geometry
         self.geom.setPosition(pos)
