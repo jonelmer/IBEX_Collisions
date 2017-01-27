@@ -64,7 +64,13 @@ For a given increase in size `S` applied to each dimension:
 ```
 modeled size = actual size + 2S
 ```
-Assuming a head on collision, a collision of the real world system occurs once the model has collided by at least `2S`. The collision can be detected with a step size of `2S` or less. Furthermore, assuming each object has an actual size of zero, and a modeled size of `2S`, the collision is maintained for `4S`. Therefore any search step of `4S` or less will detect a real-world collision. In the case of an inclined collision, the collision will persist for longer.
+Assuming a head on collision, a collision of the real world system occurs once the model has collided by at least `2S`. Furthermore, taking two objects with an actual size of zero, and a modeled size of `2S`, a "head-on" collision is maintained for `4S`. Therefore any search step of `4S` or less will detect a real-world collision. 
+In the case of an inclined collision, the collision will persist for longer as the collision path through the centre of the object increases with angle. 
+In the case of a glancing collision, whereby the collision of the model does not infer a collision of the real world system, a collision of the model may or may not be detected, but the real-world system will never be at risk.
+
+For a rotating object however, the search step must ensure that the body does not move by more than `4S` in any direction. 
+
+*The displacement of each body must be checked following the rotation, to ensure it remains less than `4S`.*
 
 
 

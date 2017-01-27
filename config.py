@@ -47,15 +47,15 @@ for i in range(0, 9):
 
 # Generate move functions
 
-def stationary(*args, **kwargs):
+def stationary(axes):
     pass
 
 
 # Z stage
-def move_z_stage(monitors):
+def move_z_stage(axes):
     t = Transformation()
 
-    size = monitors[0].value() + z_stage['size'][2]
+    size = axes[0] + z_stage['size'][2]
 
     t.translate(z=-beam_ref + size / 2)
 
@@ -63,34 +63,34 @@ def move_z_stage(monitors):
 
 
 # Rotation
-def move_rot_stage(monitors):
+def move_rot_stage(axes):
     t = Transformation()
-    t.translate(z=-beam_ref + monitors[0].value() + z_stage['size'][2] + rot_stage['size'][2] / 2)
-    t.rotate(rz=radians(monitors[1].value()))
+    t.translate(z=-beam_ref + axes[0] + z_stage['size'][2] + rot_stage['size'][2] / 2)
+    t.rotate(rz=radians(axes[1]))
 
     return t
 
 
 # Bottom arc
-def move_bot_arc(monitors):
+def move_bot_arc(axes):
     t = Transformation()
 
     t.translate(z=-centre_arc - (bot_arc['size'][2] / 2 + top_arc['size'][2]))
-    t.rotate(ry=radians(monitors[2].value()))
+    t.rotate(ry=radians(axes[2]))
     t.translate(z=centre_arc + (bot_arc['size'][2] / 2 + top_arc['size'][2]))
 
-    t.translate(z=-beam_ref + monitors[0].value() + z_stage['size'][2] + rot_stage['size'][2] + bot_arc['size'][2] / 2)
-    t.rotate(rz=radians(monitors[1].value()))
+    t.translate(z=-beam_ref + axes[0] + z_stage['size'][2] + rot_stage['size'][2] + bot_arc['size'][2] / 2)
+    t.rotate(rz=radians(axes[1]))
 
     return t
 
 
 # Top arc
-def move_top_arc(monitors):
-    t = move_bot_arc(monitors)
+def move_top_arc(axes):
+    t = move_bot_arc(axes)
 
     t.translate(z=+(centre_arc + top_arc['size'][2] / 2), forward=False)
-    t.rotate(rx=radians(monitors[3].value()), forward=False)
+    t.rotate(rx=radians(axes[3]), forward=False)
     t.translate(z=-(centre_arc + top_arc['size'][2] / 2), forward=False)
 
     t.translate(z=top_arc['size'][2] / 2 + bot_arc['size'][2] / 2, forward=False)
@@ -99,10 +99,10 @@ def move_top_arc(monitors):
 
 
 # Fine Z
-def move_fine_z(monitors):
-    t = move_top_arc(monitors)
+def move_fine_z(axes):
+    t = move_top_arc(axes)
 
-    size = monitors[4].value() + fine_z['size'][2]
+    size = axes[4] + fine_z['size'][2]
 
     t.translate(z=size / 2 + top_arc['size'][2] / 2, forward=False)
 
@@ -110,10 +110,10 @@ def move_fine_z(monitors):
 
 
 # Base of Y stage (top of fine Z)
-def move_y_base(monitors):
-    t = move_top_arc(monitors)
+def move_y_base(axes):
+    t = move_top_arc(axes)
 
-    size = monitors[4].value() + fine_z['size'][2]
+    size = axes[4] + fine_z['size'][2]
 
     t.translate(z=size + top_arc['size'][2] / 2 + y_base['size'][2] / 2, forward=False)
 
@@ -121,26 +121,26 @@ def move_y_base(monitors):
 
 
 # Y stage
-def move_y_stage(monitors):
-    t = move_y_base(monitors)
+def move_y_stage(axes):
+    t = move_y_base(axes)
 
-    t.translate(y=monitors[5].value(), z=y_base['size'][2] / 2 + y_stage['size'][2] / 2, forward=False)
+    t.translate(y=axes[5], z=y_base['size'][2] / 2 + y_stage['size'][2] / 2, forward=False)
 
     return t
 
 
 # X stage
-def move_x_stage(monitors):
-    t = move_y_stage(monitors)
+def move_x_stage(axes):
+    t = move_y_stage(axes)
 
-    t.translate(x=monitors[6].value(), z=y_stage['size'][2] / 2 + x_stage['size'][2] / 2, forward=False)
+    t.translate(x=axes[6], z=y_stage['size'][2] / 2 + x_stage['size'][2] / 2, forward=False)
 
     return t
 
 
 # Sample
-def move_sample(monitors):
-    t = move_x_stage(monitors)
+def move_sample(axes):
+    t = move_x_stage(axes)
 
     t.translate(z=x_stage['size'][2] / 2 + sample['size'][2] / 2, forward=False)
 
@@ -148,7 +148,7 @@ def move_sample(monitors):
 
 
 moves = [move_z_stage, move_rot_stage, move_bot_arc, move_top_arc, move_fine_z, move_y_stage, move_x_stage, move_sample,
-         move_y_base]
+         move_y_base, stationary, stationary]
 
 # Attach monitors to readbacks
 pvs = ["TE:NDW1720:MOT:MTR0201",
