@@ -81,9 +81,9 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
             dynamic_limits[i][0] = min_limit
         else:
             # Create a sequence from start, to the configuration minimum, in multiples of coarse
-            sequence = np.arange(start, min_limit, -coarse)
+            sequence = np.arange(start, min_limit - coarse, -coarse)
             # Make sure the last step is the limit
-            sequence = np.append(sequence, min_limit)
+            sequence[-1] = min_limit
 
             # Search for a collision within the sequence
             step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
@@ -115,9 +115,9 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
             dynamic_limits[i][1] = max_limit
         else:
             # Create a sequence from start, to the configuration maximum, in multiples of coarse
-            sequence = np.arange(start, max_limit, coarse)
+            sequence = np.arange(start, max_limit + coarse, coarse)
             # Make sure the last step is the limit
-            sequence = np.append(sequence, max_limit)
+            sequence[-1] = max_limit
 
             # Search for a collision within the sequence
             step, collided = seek(sequence, dummies, i, moves, geometries, ignore)

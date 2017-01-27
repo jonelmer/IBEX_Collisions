@@ -4,24 +4,25 @@ from transform import Transformation
 # Config happens here:
 
 # Colors for each body
-colors = [(0.6, 0.6, 0.6), (1, 0, 1), (1, 1, 0), (0, 1, 1), (0, 1, 0), (1, 0.5, 0), (0.2, 0.2, 1), (0.2, 0.2, 1), (0, 1, 0), (1, 1, 1), (1, 1, 1)]
+colors = [(0.6, 0.6, 0.6), (1, 0, 1), (1, 1, 0), (0, 1, 1), (0, 1, 0), (1, 0.5, 0), (0.2, 0.2, 1), (0.2, 0.2, 1),
+          (0, 1, 0), (1, 1, 1), (1, 1, 1)]
 
 # PV prefix for controlling the system
 control_pv = "TE:NDW1720:COLLIDE:"
 
 # Define the geometry of the system in mm
 # Coordinate origin at arc centre, with nominal beam height
-z_stage =   dict(name="Z_Stage",    size=(1000.0, 1000.0, 630.0))
-rot_stage = dict(name="Rotation",   size=( 600.0,  600.0, 165.0))
-bot_arc =   dict(name="Bottom_Arc", size=( 600.0,  600.0, 120.0))
-top_arc =   dict(name="Top_Arc",    size=( 600.0,  600.0, 120.0))
-fine_z =    dict(name="Fine_Z",     size=( 600.0,  600.0, 120.0))
-y_stage =   dict(name="Y_Carriage", size=( 600.0,  300.0, 20.0))
-x_stage =   dict(name="X_Carriage", size=( 520.0,  300.0, 20.0))
-sample =    dict(name="Sample",     size=( 250.0,  250.0, 150.0))
-y_base =    dict(name="Y_Stage",    size=( 900.0, 1200.0, 50.0))
-snout =     dict(name="Snout", position=(-300, 0, 0), size=(500, 70, 70))
-slits =     dict(name="Slits", position=(450, 0, 0), size=(100, 300, 300))
+z_stage = dict(name="Z_Stage", size=(1000.0, 1000.0, 630.0))
+rot_stage = dict(name="Rotation", size=(600.0, 600.0, 165.0))
+bot_arc = dict(name="Bottom_Arc", size=(600.0, 600.0, 120.0))
+top_arc = dict(name="Top_Arc", size=(600.0, 600.0, 120.0))
+fine_z = dict(name="Fine_Z", size=(600.0, 600.0, 120.0))
+y_stage = dict(name="Y_Carriage", size=(600.0, 300.0, 20.0))
+x_stage = dict(name="X_Carriage", size=(520.0, 300.0, 20.0))
+sample = dict(name="Sample", size=(250.0, 250.0, 150.0))
+y_base = dict(name="Y_Stage", size=(900.0, 1200.0, 50.0))
+snout = dict(name="Snout", position=(-300, 0, 0), size=(500, 70, 70))
+slits = dict(name="Slits", position=(450, 0, 0), size=(100, 300, 300))
 
 # Put them in a list
 geometries = [z_stage, rot_stage, bot_arc, top_arc, fine_z, y_stage, x_stage, sample, y_base, snout, slits]
@@ -35,7 +36,7 @@ coarse = 20
 fine = 0.5
 
 # Define the oversized-ness of each body - a global value in mm
-oversize = coarse/4
+oversize = coarse / 4
 
 # List of pairs to ignore [0, 1]...[7, 8]
 ignore = []
@@ -43,10 +44,12 @@ for i in range(0, 9):
     for j in range(i, 9):
         ignore.append([i, j])
 
+
 # Generate move functions
 
-def stationary(*args):
+def stationary(*args, **kwargs):
     pass
+
 
 # Z stage
 def move_z_stage(monitors):
@@ -62,7 +65,7 @@ def move_z_stage(monitors):
 # Rotation
 def move_rot_stage(monitors):
     t = Transformation()
-    t.translate(z=-beam_ref + monitors[0].value() + z_stage['size'][2] + rot_stage['size'][2]/2)
+    t.translate(z=-beam_ref + monitors[0].value() + z_stage['size'][2] + rot_stage['size'][2] / 2)
     t.rotate(rz=radians(monitors[1].value()))
 
     return t
@@ -72,9 +75,9 @@ def move_rot_stage(monitors):
 def move_bot_arc(monitors):
     t = Transformation()
 
-    t.translate(z=-centre_arc - (bot_arc['size'][2]/2 + top_arc['size'][2]))
+    t.translate(z=-centre_arc - (bot_arc['size'][2] / 2 + top_arc['size'][2]))
     t.rotate(ry=radians(monitors[2].value()))
-    t.translate(z= centre_arc + (bot_arc['size'][2]/2 + top_arc['size'][2]))
+    t.translate(z=centre_arc + (bot_arc['size'][2] / 2 + top_arc['size'][2]))
 
     t.translate(z=-beam_ref + monitors[0].value() + z_stage['size'][2] + rot_stage['size'][2] + bot_arc['size'][2] / 2)
     t.rotate(rz=radians(monitors[1].value()))
@@ -90,7 +93,7 @@ def move_top_arc(monitors):
     t.rotate(rx=radians(monitors[3].value()), forward=False)
     t.translate(z=-(centre_arc + top_arc['size'][2] / 2), forward=False)
 
-    t.translate(z=top_arc['size'][2]/2 + bot_arc['size'][2] / 2, forward=False)
+    t.translate(z=top_arc['size'][2] / 2 + bot_arc['size'][2] / 2, forward=False)
 
     return t
 
@@ -101,7 +104,7 @@ def move_fine_z(monitors):
 
     size = monitors[4].value() + fine_z['size'][2]
 
-    t.translate(z=size/2 + top_arc['size'][2]/2, forward=False)
+    t.translate(z=size / 2 + top_arc['size'][2] / 2, forward=False)
 
     return t, dict(z=size)
 
@@ -112,7 +115,7 @@ def move_y_base(monitors):
 
     size = monitors[4].value() + fine_z['size'][2]
 
-    t.translate(z=size + top_arc['size'][2]/2 + y_base['size'][2]/2, forward=False)
+    t.translate(z=size + top_arc['size'][2] / 2 + y_base['size'][2] / 2, forward=False)
 
     return t
 
@@ -121,7 +124,7 @@ def move_y_base(monitors):
 def move_y_stage(monitors):
     t = move_y_base(monitors)
 
-    t.translate(y=monitors[5].value(), z=y_base['size'][2]/2 + y_stage['size'][2]/2, forward=False)
+    t.translate(y=monitors[5].value(), z=y_base['size'][2] / 2 + y_stage['size'][2] / 2, forward=False)
 
     return t
 
@@ -130,15 +133,16 @@ def move_y_stage(monitors):
 def move_x_stage(monitors):
     t = move_y_stage(monitors)
 
-    t.translate(x=monitors[6].value(), z=y_stage['size'][2]/2 + x_stage['size'][2]/2, forward=False)
+    t.translate(x=monitors[6].value(), z=y_stage['size'][2] / 2 + x_stage['size'][2] / 2, forward=False)
 
     return t
+
 
 # Sample
 def move_sample(monitors):
     t = move_x_stage(monitors)
 
-    t.translate(z=x_stage['size'][2]/2 + sample['size'][2]/2, forward=False)
+    t.translate(z=x_stage['size'][2] / 2 + sample['size'][2] / 2, forward=False)
 
     return t
 

@@ -16,7 +16,8 @@ class Monitor(object):
         self.stale = True
 
     def start(self):
-        if self.running: self.stop()
+        if self.running:
+            self.stop()
 
         try:
             self.channel.searchw(self.pv)
@@ -74,7 +75,6 @@ class MonitorQueue(Monitor):
                 with self.lock:
                     self.queue.append(value)
                     self.time = time.time()
-
 
     def clear(self):
         """

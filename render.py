@@ -4,8 +4,8 @@ from OpenGL.GL import *
 from OpenGL.GL.VERSION.GL_1_0 import glLoadMatrixd
 from OpenGL.GL.exceptional import glBegin, glEnd
 from OpenGL.GL.images import glDrawPixels
-from OpenGL.raw.GL.VERSION.GL_1_0 import glViewport, glMatrixMode, glLoadIdentity, glEnable, glShadeModel, glClearColor, \
-    glClear, glPushMatrix, glOrtho, glDisable, glPopMatrix, glRasterPos2d
+from OpenGL.raw.GL.VERSION.GL_1_0 import glViewport, glMatrixMode, glLoadIdentity, glEnable, glShadeModel, \
+    glClearColor, glClear, glPushMatrix, glOrtho, glDisable, glPopMatrix, glRasterPos2d
 from OpenGL.raw.GL.VERSION.GL_1_1 import GL_PROJECTION, GL_MODELVIEW, GL_DEPTH_TEST, GL_FLAT, GL_COLOR_MATERIAL, \
     GL_LIGHTING, GL_LIGHT0, GL_POSITION, GL_FRONT, GL_AMBIENT, GL_DIFFUSE, GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, \
     GL_CULL_FACE, GL_RGBA, GL_LINES
@@ -13,7 +13,7 @@ from OpenGL.raw.GL.VERSION.GL_4_0 import GL_QUADS
 from OpenGL.raw.GL._types import GL_UNSIGNED_BYTE
 from OpenGL.raw.GLU import gluPerspective
 from pygame.constants import HWSURFACE, OPENGL, DOUBLEBUF, QUIT, KEYUP, K_ESCAPE, K_LEFT, K_RIGHT, K_DOWN, K_UP, K_z, \
-    K_x, K_w, K_s, K_a, K_d, K_q, K_e, K_1, K_2, K_3, K_4, K_SPACE, K_RETURN
+    K_x, K_w, K_s, K_a, K_d, K_q, K_e, K_1, K_2, K_3, K_4, K_SPACE
 
 import threading
 import logging
@@ -66,7 +66,7 @@ movement_speed = 250.0
 def glinit():
     pygame.init()
 
-    screen = pygame.display.set_mode(screensize, HWSURFACE | OPENGL | DOUBLEBUF)
+    pygame.display.set_mode(screensize, HWSURFACE | OPENGL | DOUBLEBUF)
 
     global font
     font = pygame.font.SysFont("consolas", 18)
@@ -186,21 +186,20 @@ def check_controls(renderer):
         renderer.op_mode.set_limits.clear()
     if pressed[K_SPACE]:
         initialise_camera(camera_transform)
-    # if pressed[K_RETURN]:
-    #     setLimits(config.hardlimits, config.pvs)
 
     # Calculate camera rotation
-    rotation = rotation_direction * rotation_speed * time_passed_seconds
+    rotation = np.array(rotation_direction * rotation_speed * time_passed_seconds)
     camera_transform.rotate(*rotation, forward=False)
 
     # Calculate camera movement
-    camera_transform.translate(*(movement_direction * movement_speed * time_passed_seconds), forward=False)
+    movement = np.array(movement_direction * movement_speed * time_passed_seconds)
+    camera_transform.translate(*movement, forward=False)
 
     # Light must be transformed as well
     glLight(GL_LIGHT0, GL_POSITION, (0.0, 0.0, -1.0, 1.0))
 
     # Upload the inverse camera matrix to OpenGL
-    glLoadMatrixd(np.reshape(camera_transform.get_inverse(), (1, 16))[0])
+    glLoadMatrixd(np.reshape(camera_transform.get_inverse(), 16))
 
 
 def square(x, y, w=50, h=50, color=(1, 0, 0)):
@@ -387,7 +386,6 @@ def draw(renderer, monitors):
         else:
             # geometry.render()
             render_box(geometry)
-
 
     # Set the HUD normal to the camera's position - gives us full illumination?
     glNormal3dv([0., -1., 0.])

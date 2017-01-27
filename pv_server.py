@@ -14,17 +14,17 @@ import logging
 count = 1
 
 pvdb = {
-    'RAND' : {
-        'prec' : 3,
-       # 'scan' : 1,
+    'RAND': {
+        'prec': 3,
+        # 'scan' : 1,
         'count': 1,
-        'type' : 'float',
+        'type': 'float',
     },
-    'MSG' : {
+    'MSG': {
         'count': 300,
-        'type' : 'char',
+        'type': 'char',
     },
-    'NAMES' : {
+    'NAMES': {
         'count': count,
         'type': 'string',
     },
@@ -101,9 +101,10 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s (%(threadName)-2s) %(message)s',
                     )
 
-class myDriver(Driver):
+
+class MyDriver(Driver):
     def __init__(self, data, op_mode):
-        super(myDriver, self).__init__()
+        super(MyDriver, self).__init__()
         self.__data = data
         self.op_mode = op_mode
 
@@ -140,17 +141,18 @@ class myDriver(Driver):
             elif value == 0:
                 self.op_mode.set_limits.clear()
         elif reason == 'OVERSIZE':
-            self.__data.set_data(OVERSIZE=value, COARSE=4*value, new_data=True)
+            self.__data.set_data(OVERSIZE=value, COARSE=4 * value, new_data=True)
             self.setParam(reason, value)
             self.setParam('COARSE', 4 * value)
         elif reason == 'COARSE':
-            self.__data.set_data(OVERSIZE=value/4, COARSE=value, new_data=True)
+            self.__data.set_data(OVERSIZE=value / 4, COARSE=value, new_data=True)
             self.setParam(reason, value)
             self.setParam('OVERSIZE', value / 4)
         elif reason == 'FINE':
             self.__data.set_data(FINE=value, new_data=True)
             self.setParam(reason, value)
         return status
+
 
 class ServerDataException(Exception):
     pass
@@ -177,7 +179,6 @@ class ServerData(object):
                 else:
                     raise ServerDataException("The key supplied is not in the data dict")
 
-
     def set_data(self, **data):
         # Sets only the provided data
         # e.g.: set_data(x=10) will not affect __data['y']
@@ -188,12 +189,8 @@ class ServerData(object):
 if __name__ == '__main__':
     pass
 
-def start_thread(prefix, data, op_mode):
 
-    empty_data = data.get_data()
-    for key in pvdb:
-        if not key in empty_data:
-            data.set_data(key=None)
+def start_thread(prefix, data, op_mode):
 
     server = SimpleServer()
     server.createPV(prefix, pvdb)
@@ -204,10 +201,6 @@ def start_thread(prefix, data, op_mode):
     server_thread.daemon = True
     server_thread.start()
 
-    driver = myDriver(data, op_mode)
+    driver = MyDriver(data, op_mode)
 
     return driver
-
-    # process CA transactions
-    #while True:
-    #    server.process(0.1)
