@@ -35,11 +35,6 @@ def initialise_camera(transform):
     transform.translate(-200, 200, 200)
     return transform
 
-
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s (%(threadName)-2s) %(message)s',
-                    )
-
 screensize = (820, 720)
 
 os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (5, 25)

@@ -11,9 +11,14 @@ import render
 import pv_server
 from monitor import Monitor, DummyMonitor
 from move import move_all
+from transform import Transformation
 
 # This should be from C:\Instrument\Apps\EPICS\ISIS\inst_servers\master\server_common\loggers\isis_logger.py
 from isis_logger import IsisLogger
+
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s (%(threadName)-2s) %(message)s',
+                    )
 
 
 class GeometryBox(object):
@@ -55,6 +60,25 @@ class GeometryBox(object):
         # Apply the translation and rotation to the ODE geometry
         self.geom.setPosition(pos)
         self.geom.setRotation(rot)
+
+    def get_vertices(self):
+        vertices = np.array([(-0.5, -0.5, 0.5),
+                    (0.5, -0.5, 0.5),
+                    (0.5, 0.5, 0.5),
+                    (-0.5, 0.5, 0.5),
+                    (-0.5, -0.5, -0.5),
+                    (0.5, -0.5, -0.5),
+                    (0.5, 0.5, -0.5),
+                    (-0.5, 0.5, -0.5)])
+
+        vertices *= self.size
+
+        t = Transformation()
+        t.join(np.reshape(self.geom.getRotation(), (3, 3)), self.geom.getPosition())
+
+        vertices = [t.evaluate(v) for v in vertices]
+
+        return vertices
 
 
 # Do coarse and fine searches for limits in both forward and backward directions
@@ -157,6 +181,7 @@ def seek(sequence, dummies, i, moves, geometries, ignore):
     # Initialise some variables
     collided = False
     step = None
+    old_points = None
 
     # Iterate over the sequence
     for s in sequence:
@@ -166,6 +191,23 @@ def seek(sequence, dummies, i, moves, geometries, ignore):
         dummies[i].update(step)
         # Move to position
         move_all(dummies, geometries, moves)
+
+        new_points = [g.get_vertices() for g in geometries]
+
+        if old_points is not None:
+            # calculate the position deltas
+
+            for j in range(len(geometries)):
+                old = old_points[j]
+                new = new_points[j]
+                d = [n - o for n, o in zip(new, old)]
+                if any([abs(p) > 20 for v in d for p in v]):
+                    print "Body %d moved further than expected, for axis %d" % (j, i)
+                    #return step, False
+
+        old_points = new_points[:]
+
+
         # Check for collisions
         collisions = collide(geometries, ignore)
         # If we've collided, then stop iterating

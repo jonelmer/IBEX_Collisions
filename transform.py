@@ -95,7 +95,8 @@ class Transformation(object):
         """
         Given a set of [x, y ,z] coordinates, calculate transformed position
         """
-        position = position[0:3] + [1]
+        position = position[0:3]
+        position = np.append(position, [1])
 
         result = np.dot(self.matrix, position)
 
@@ -109,6 +110,15 @@ class Transformation(object):
         position = self.matrix[0:3, 3]
 
         return rotation, position
+
+    def join(self, rotation, position):
+        """
+        Join matrix from rotation and position matrices
+        """
+        self.matrix[0:3, 0:3] = rotation
+        self.matrix[0:3, 3] = position
+
+        return self.matrix
 
     def to_opengl(self):
         """

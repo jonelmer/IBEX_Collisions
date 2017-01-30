@@ -97,10 +97,6 @@ pvdb = {
     },
 }
 
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s (%(threadName)-2s) %(message)s',
-                    )
-
 
 class MyDriver(Driver):
     def __init__(self, data, op_mode):
