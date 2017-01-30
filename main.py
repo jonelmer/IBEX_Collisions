@@ -151,7 +151,7 @@ def auto_seek(start_step_size, start_values, end_value, geometries, moves, axis_
                 # print "Max delta %f > %f step size for axis %d" % (delta, start_step_size, axis_index)
 
                 # Work out a new step size
-                step_size *= (start_step_size / delta) * 0.9
+                step_size *= np.fix((start_step_size/delta)*1000)/1000
                 # print "New step size of %f for axis %d" % (step_size, axis_index)
                 last_value = None
                 continue
