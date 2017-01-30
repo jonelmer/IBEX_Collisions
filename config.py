@@ -28,11 +28,11 @@ slits = dict(name="Slits", position=(450, 0, 0), size=(100, 300, 300))
 geometries = [z_stage, rot_stage, bot_arc, top_arc, fine_z, y_stage, x_stage, sample, y_base, snout, slits]
 
 # Define some variables to describe the geometry
-centre_arc = 750
-beam_ref = 1625
+centre_arc = 750.0
+beam_ref = 1625.0
 
 # Define some search parameters
-coarse = 20
+coarse = 20.0
 fine = 0.5
 
 # Define the oversized-ness of each body - a global value in mm

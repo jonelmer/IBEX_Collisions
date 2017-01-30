@@ -47,7 +47,7 @@ class GeometryBox(object):
             self.size[2] = z
         if oversize is not None:
             self.oversize = oversize
-        self.geom.setLengths([s + 2 + self.oversize for s in self.size])
+        self.geom.setLengths([s + 2 * self.oversize for s in self.size])
 
     # Set the transform for the geometry
     def set_transform(self, transform):
@@ -61,29 +61,148 @@ class GeometryBox(object):
         self.geom.setPosition(pos)
         self.geom.setRotation(rot)
 
+    def get_transform(self):
+        t = Transformation()
+        t.join(self.geom.getRotation(), self.geom.getPosition())
+        return t
+
     def get_vertices(self):
         vertices = np.array([(-0.5, -0.5, 0.5),
-                    (0.5, -0.5, 0.5),
-                    (0.5, 0.5, 0.5),
-                    (-0.5, 0.5, 0.5),
-                    (-0.5, -0.5, -0.5),
-                    (0.5, -0.5, -0.5),
-                    (0.5, 0.5, -0.5),
-                    (-0.5, 0.5, -0.5)])
+                             (0.5, -0.5, 0.5),
+                             (0.5, 0.5, 0.5),
+                             (-0.5, 0.5, 0.5),
+                             (-0.5, -0.5, -0.5),
+                             (0.5, -0.5, -0.5),
+                             (0.5, 0.5, -0.5),
+                             (-0.5, 0.5, -0.5)])
 
-        vertices *= self.size
+        vertices *= self.geom.getLengths()
 
-        t = Transformation()
-        t.join(np.reshape(self.geom.getRotation(), (3, 3)), self.geom.getPosition())
+        t = self.get_transform()
 
         vertices = [t.evaluate(v) for v in vertices]
 
         return vertices
 
 
+def auto_seek(start_step_size, start_values, end_value, geometries, moves, axis_index, ignore, fine_step=None):
+    limit = end_value
+    current_value = start_values[axis_index]
+
+    print "Seek from %f to %f" % (start_values[axis_index], end_value)
+    if current_value == end_value:
+        print "Already there!"
+        return end_value
+
+    values = start_values[:]
+
+    last_value = None
+    old_points = None
+
+    step_checked = False
+
+    if current_value < end_value:
+        # Going up
+        def compare(a, b):
+            return a < b
+
+        step_size = abs(start_step_size)
+    else:
+        # Going down
+        def compare(a, b):
+            return a > b
+
+        step_size = -abs(start_step_size)
+
+    while last_value is None or compare(last_value, end_value):
+        # Move if we need to
+        if last_value is not None:
+            current_value += step_size
+            # print "Using step size of %f" % step_size
+        else:
+            current_value = start_values[axis_index]
+
+        if not compare(current_value, end_value):
+            current_value = end_value
+
+        # print "Moving axis %d to %f" % (axis_index, current_value)
+
+        values[axis_index] = current_value
+        # print "Axes at %s" % values
+        move_all(geometries, moves, values=values[:])
+
+        # Check nothing moved too far
+        new_points = [g.get_vertices() for g in geometries]
+        if old_points is not None and step_checked is False:
+            # Calculate the greatest position deltas
+            delta = 0
+            for j in range(len(geometries)):
+                old = old_points[j]
+                new = new_points[j]
+                deltas = [map(float, n - o) for n, o in zip(new, old)]
+                for i, (x, y, z) in enumerate(deltas):
+                    mag = float(x) ** 2 + float(y) ** 2 + float(z) ** 2
+                    if mag > delta:
+                        delta = mag
+                        # print "New max delta of %f (%f, %f, %f) for body %d at %s from %s" % \
+                        #       (mag ** 0.5, x, y, z, j, new[i], old[i])
+            delta = float(delta) ** 0.5
+            if delta > start_step_size:
+                # print "Max delta %f > %f step size for axis %d" % (delta, start_step_size, axis_index)
+
+                # Work out a new step size
+                step_size *= (start_step_size / delta) * 0.9
+                # print "New step size of %f for axis %d" % (step_size, axis_index)
+                last_value = None
+                continue
+            step_checked = True
+
+        # Check for collisions
+        collisions = collide(geometries, ignore)
+
+        if any(collisions):
+            if current_value == start_values[axis_index]:
+                # There was already a collision
+                print "There was already a collision on axis %d" % axis_index
+                limit = current_value
+                break
+            elif fine_step and fine_step < step_size:
+                start_values[axis_index] = last_value
+                print "Doing fine seek for axis %d" % axis_index
+                limit = auto_seek(fine_step, start_values, current_value, geometries, moves, axis_index, ignore)
+            else:
+                limit = last_value
+            break
+
+        old_points = new_points[:]
+        last_value = current_value
+
+    print "Found limits for axis %d using step size of %f" % (axis_index, step_size)
+
+    if limit is None:
+        print "Null limit"
+
+    return limit
+
+
+def auto_seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.1):
+    dynamic_limits = []
+    for i in range(len(monitors)):
+        print "Seeking for axis %d" % i
+        start_values = [m.value() for m in monitors]
+
+        lower_limit = auto_seek(coarse, start_values, min(limits[i]), geometries, moves, i, ignore, fine)
+        upper_limit = auto_seek(coarse, start_values, max(limits[i]), geometries, moves, i, ignore, fine)
+
+        dynamic_limits.append([lower_limit, upper_limit])
+
+        print "Found limits for axis %d at %s, %s" % (i, upper_limit, lower_limit)
+
+    return dynamic_limits
+
+
 # Do coarse and fine searches for limits in both forward and backward directions
 def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.1):
-
     # Initialise dynamic limits - be careful to copy, not reference
     dynamic_limits = [l[:] for l in limits[:]]
 
@@ -125,7 +244,7 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
             else:
                 # There is a collision between step+coarse and step
                 # Generate a sequence with between step+coarse, and step, in multiples of fine
-                sequence = np.arange(step+coarse, step, -fine)
+                sequence = np.arange(step + coarse, step, -fine)
 
                 # Search for a collision within the sequence
                 step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
@@ -159,7 +278,7 @@ def seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.
             else:
                 # There is a collision between step-coarse and step
                 # Generate a sequence with between step-coarse, and step, in multiples of fine
-                sequence = np.arange(step-coarse, step, fine)
+                sequence = np.arange(step - coarse, step, fine)
 
                 # Search for a collision within the sequence
                 step, collided = seek(sequence, dummies, i, moves, geometries, ignore)
@@ -190,7 +309,7 @@ def seek(sequence, dummies, i, moves, geometries, ignore):
         # Update the dummy monitor
         dummies[i].update(step)
         # Move to position
-        move_all(dummies, geometries, moves)
+        move_all(geometries, moves, dummies)
 
         new_points = [g.get_vertices() for g in geometries]
 
@@ -203,10 +322,9 @@ def seek(sequence, dummies, i, moves, geometries, ignore):
                 d = [n - o for n, o in zip(new, old)]
                 if any([abs(p) > 20 for v in d for p in v]):
                     print "Body %d moved further than expected, for axis %d" % (j, i)
-                    #return step, False
+                    # return step, False
 
         old_points = new_points[:]
-
 
         # Check for collisions
         collisions = collide(geometries, ignore)
@@ -288,7 +406,6 @@ class OperatingMode(object):
 
 # The main routine to execute
 def main():
-
     # Load config:
     colors = config.colors
     moves = config.moves
@@ -370,7 +487,7 @@ def main():
         frozen = [DummyMonitor(m.value()) for m in monitors]
 
         # Execute the move
-        move_all(frozen, geometries, moves)
+        move_all(geometries, moves, frozen)
 
         # Check if the oversize has been changed, ahead of any collision calcs
         if data.get_data('new_data'):
@@ -423,15 +540,15 @@ def main():
             time_passed = time()
 
             # Seek the correct limit values
-            dynamic_limits = seek_limits(geometries, ignore, moves, frozen, config_limits,
-                                         coarse=driver.getParam('COARSE'), fine=driver.getParam('FINE'))
+            dynamic_limits = auto_seek_limits(geometries, ignore, moves, frozen, config_limits,
+                                              coarse=driver.getParam('COARSE'), fine=driver.getParam('FINE'))
 
             # Calculate and log the time taken to calculate
             time_passed = (time() - time_passed) * 1000
             logging.debug("Calculated limits in %d", time_passed)
 
             # Log the new limits
-            logging.debug("New limits are " + str(dynamic_limits))
+            logging.info("New limits are " + str(dynamic_limits))
 
             # Set the limits according to the set_limits operating mode
             if op_mode.set_limits.is_set():
@@ -479,6 +596,7 @@ def main():
 
         # Give the CPU a break
         sleep(0.01)
+
 
 # Execute main
 main()

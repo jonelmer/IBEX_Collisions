@@ -147,6 +147,8 @@ class MyDriver(Driver):
         elif reason == 'FINE':
             self.__data.set_data(FINE=value, new_data=True)
             self.setParam(reason, value)
+
+        self.__data.set_data(new_data=True)
         return status
 
 

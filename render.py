@@ -21,7 +21,6 @@ import logging
 import numpy as np
 from transform import Transformation
 
-from monitor import DummyMonitor
 from move import move_all
 
 
@@ -120,7 +119,8 @@ class Renderer(threading.Thread):
         self.op_mode.close.clear()
         glinit()
         while self.op_mode.close.is_set() is False:
-            frozen = [DummyMonitor(monitor.value()) for monitor in self.monitors]
+            frozen = [monitor.value() for monitor in self.monitors]
+            # frozen = [DummyMonitor(monitor.value()) for monitor in self.monitors]
             loop(self, frozen)
 
 
@@ -355,7 +355,7 @@ def render_box(geometry, color=None, fill=True):
         glEnd()
 
 
-def draw(renderer, monitors):
+def draw(renderer, frozen):
     softlimits, collisions, duration = renderer.parameters.get_params()
 
     global stopMotors, autoRestart, heartbeat, time_passed, camera_transform
@@ -372,7 +372,7 @@ def draw(renderer, monitors):
     # glVertex((-10, 10, 0))
     # glEnd()
 
-    move_all(monitors, renderer.geometries, renderer.moves)
+    move_all(renderer.geometries, renderer.moves, values=frozen)
     # Render!
     for geometry, collided in zip(renderer.geometries, collisions):
         if collided:
@@ -418,9 +418,9 @@ def draw(renderer, monitors):
     else:
         text(70, 35, "Not setting limits")
 
-    for i, (monitor, limit) in enumerate(zip(monitors, softlimits)):
+    for i, (monitor, limit) in enumerate(zip(frozen, softlimits)):
         text(80 * 1, 70 + (30 * i), "%.2f" % limit[0], renderer.colors[i % len(renderer.colors)], align="right")
-        text(80 * 2, 70 + (30 * i), "%.2f" % monitor.value(), renderer.colors[i % len(renderer.colors)], align="right")
+        text(80 * 2, 70 + (30 * i), "%.2f" % monitor, renderer.colors[i % len(renderer.colors)], align="right")
         text(80 * 3, 70 + (30 * i), "%.2f" % limit[1], renderer.colors[i % len(renderer.colors)], align="right")
 
     if duration > 0:

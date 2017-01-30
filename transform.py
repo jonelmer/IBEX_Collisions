@@ -96,7 +96,7 @@ class Transformation(object):
         Given a set of [x, y ,z] coordinates, calculate transformed position
         """
         position = position[0:3]
-        position = np.append(position, [1])
+        position = np.append(position, [1.0])
 
         result = np.dot(self.matrix, position)
 
@@ -115,8 +115,16 @@ class Transformation(object):
         """
         Join matrix from rotation and position matrices
         """
-        self.matrix[0:3, 0:3] = rotation
-        self.matrix[0:3, 3] = position
+        r = rotation
+        p = position
+
+        # self.matrix[0:3, 0:3] = rotation
+        # self.matrix[0:3, 3] = position
+
+        self.matrix = np.array([[r[0], r[1], r[2], p[0]],
+                                [r[3], r[4], r[5], p[1]],
+                                [r[6], r[7], r[8], p[2]],
+                                [0.00, 0.00, 0.00, 1.00]])
 
         return self.matrix
 
