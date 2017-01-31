@@ -455,9 +455,10 @@ def main():
     # Create a shared render parameter object to update the render thread
     parameters = render.RenderParams()
 
-    # Initialise the render thread, and set it to daemon - won't prevent the main thread from exiting
-    renderer = render.Renderer(parameters, rendergeometries, colors, monitors, pvs, moves, op_mode)
-    renderer.daemon = True
+    if 'blind' not in sys.argv:
+        # Initialise the render thread, and set it to daemon - won't prevent the main thread from exiting
+        renderer = render.Renderer(parameters, rendergeometries, colors, monitors, pvs, moves, op_mode)
+        renderer.daemon = True
 
     # Need to know if this is the first execution of the main loop
     calc_limits = True
@@ -479,7 +480,6 @@ def main():
 
     driver = pv_server.start_thread(config.control_pv, data, op_mode)
 
-    driver.setParam('MSG', 'Hello world!!??!')
     driver.setParam('OVERSIZE', config.oversize)
     driver.setParam('COARSE', config.coarse)
     driver.setParam('FINE', config.fine)
@@ -581,9 +581,10 @@ def main():
 
             driver.updatePVs()
 
-            # On the first run, start the renderer
-            if renderer.is_alive() is False:
-                renderer.start()
+            if 'blind' not in sys.argv:
+                # On the first run, start the renderer
+                if renderer.is_alive() is False:
+                    renderer.start()
 
             calc_limits = False
         else:
@@ -593,7 +594,7 @@ def main():
 
         # Stop us overloading the limits
         if not new_limits == old_limits:
-            set_limits(new_limits, pvs)
+            threading.Thread(target=set_limits, args=(new_limits, pvs))
 
         old_limits = new_limits[:]
 
