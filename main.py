@@ -1,5 +1,6 @@
 import logging
 import threading
+import sys
 from time import sleep, time
 
 import numpy as np
@@ -132,30 +133,32 @@ def auto_seek(start_step_size, start_values, end_value, geometries, moves, axis_
         move_all(geometries, moves, values=values[:])
 
         # Check nothing moved too far
-        new_points = [g.get_vertices() for g in geometries]
-        if old_points is not None and step_checked is False:
-            # Calculate the greatest position deltas
-            delta = 0
-            for j in range(len(geometries)):
-                old = old_points[j]
-                new = new_points[j]
-                deltas = [map(float, n - o) for n, o in zip(new, old)]
-                for i, (x, y, z) in enumerate(deltas):
-                    mag = float(x) ** 2 + float(y) ** 2 + float(z) ** 2
-                    if mag > delta:
-                        delta = mag
-                        # print "New max delta of %f (%f, %f, %f) for body %d at %s from %s" % \
-                        #       (mag ** 0.5, x, y, z, j, new[i], old[i])
-            delta = float(delta) ** 0.5
-            if delta > start_step_size:
-                # print "Max delta %f > %f step size for axis %d" % (delta, start_step_size, axis_index)
+        if step_checked is False:
+            new_points = [g.get_vertices() for g in geometries]
+            if old_points is not None:
+                # Calculate the greatest position deltas
+                delta = 0
+                for j in range(len(geometries)):
+                    old = old_points[j]
+                    new = new_points[j]
+                    deltas = [map(float, n - o) for n, o in zip(new, old)]
+                    for i, (x, y, z) in enumerate(deltas):
+                        mag = float(x) ** 2 + float(y) ** 2 + float(z) ** 2
+                        if mag > delta:
+                            delta = mag
+                            # print "New max delta of %f (%f, %f, %f) for body %d at %s from %s" % \
+                            #       (mag ** 0.5, x, y, z, j, new[i], old[i])
+                delta = float(delta) ** 0.5
+                if delta > start_step_size:
+                    # print "Max delta %f > %f step size for axis %d" % (delta, start_step_size, axis_index)
 
-                # Work out a new step size
-                step_size *= np.fix((start_step_size/delta)*1000)/1000
-                # print "New step size of %f for axis %d" % (step_size, axis_index)
-                last_value = None
-                continue
-            step_checked = True
+                    # Work out a new step size
+                    #step_size *= np.fix((start_step_size/delta)*1000)/1000
+                    step_size *= start_step_size/delta
+                    # print "New step size of %f for axis %d" % (step_size, axis_index)
+                    last_value = None
+                    continue
+                step_checked = True
 
         # Check for collisions
         collisions = collide(geometries, ignore)
@@ -356,8 +359,14 @@ def collide(geometries, ignore):
 # Set the high and low dial limits for each motor
 def set_limits(limits, pvs):
     for limit, pv in zip(limits, pvs):
-        set_pv(pv + '.DLLM', np.min(limit))
-        set_pv(pv + '.DHLM', np.max(limit))
+        #threading.Thread(target=set_pv, args=(pv + '.DLLM', limit[0]))
+        #threading.Thread(target=set_pv, args=(pv + '.DHLM', limit[1]))
+        # threading.Thread(target=set_pv, args=(pv + '.DLLM', np.min(limit)))
+        # threading.Thread(target=set_pv, args=(pv + '.DHLM', np.max(limit)))
+        # set_pv(pv + '.DLLM', np.min(limit))
+        # set_pv(pv + '.DHLM', np.max(limit))
+        set_pv(pv + '.DLLM', limit[0])
+        set_pv(pv + '.DHLM', limit[1])
 
 
 # Contains operating mode events
@@ -596,6 +605,9 @@ def main():
 
         # Give the CPU a break
         sleep(0.01)
+
+        if 'return' in sys.argv:
+            return
 
 
 # Execute main

@@ -18,7 +18,7 @@ class Transformation(object):
 
     # Reset the matrix to an identity - clears all transforms
     def identity(self):
-        self.matrix = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        self.matrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 
     def rotate(self, rx=0, ry=0, rz=0, forward=True):
         """
@@ -69,12 +69,14 @@ class Transformation(object):
         If forward is true:   new matrix = translation . old matrix,
         otherwise it is:      new matrix = old matrix . translation
         """
-        if forward:
-            self.matrix = np.dot(
-                np.array([[1, 0, 0, x],
-                          [0, 1, 0, y],
-                          [0, 0, 1, z],
-                          [0, 0, 0, 1]]), self.matrix)
+        if all([m == 0 for m in self.matrix[0:3, 3]]):
+            self.matrix[0:3, 3] += [x, y, z]
+        elif forward:
+             self.matrix = np.dot(
+                 np.array([[1, 0, 0, x],
+                           [0, 1, 0, y],
+                           [0, 0, 1, z],
+                           [0, 0, 0, 1]]), self.matrix)
         else:
             self.matrix = np.dot(self.matrix,
                                  np.array([[1, 0, 0, x],
@@ -95,8 +97,8 @@ class Transformation(object):
         """
         Given a set of [x, y ,z] coordinates, calculate transformed position
         """
-        position = position[0:3]
-        position = np.append(position, [1.0])
+        x, y, z = position[0:3]
+        position = [x, y, z, 1.0]
 
         result = np.dot(self.matrix, position)
 
