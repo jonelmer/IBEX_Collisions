@@ -13,12 +13,14 @@ class TransformError(Exception):
 
 class Transformation(object):
     # Initialise the transformation matrix to an identity
-    def __init__(self):
-        self.matrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+    def __init__(self, transform=None):
+        self.identity()
+        if transform is not None:
+            self.matrix[:] = transform.matrix
 
     # Reset the matrix to an identity - clears all transforms
     def identity(self):
-        self.matrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+        self.matrix = np.array([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]])
 
     def rotate(self, rx=0, ry=0, rz=0, forward=True):
         """
@@ -69,9 +71,7 @@ class Transformation(object):
         If forward is true:   new matrix = translation . old matrix,
         otherwise it is:      new matrix = old matrix . translation
         """
-        if all([m == 0 for m in self.matrix[0:3, 3]]):
-            self.matrix[0:3, 3] += [x, y, z]
-        elif forward:
+        if forward:
              self.matrix = np.dot(
                  np.array([[1, 0, 0, x],
                            [0, 1, 0, y],
@@ -184,3 +184,6 @@ class Transformation(object):
         m[14] = - (i12 * m[2] + i13 * m[6] + i14 * m[10])
 
         return np.reshape(ret, (4, 4))
+
+    def __str__(self):
+        return str(self.matrix)

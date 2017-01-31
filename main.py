@@ -431,8 +431,8 @@ def main():
     geometries = []
     rendergeometries = []
     for i, geometry in enumerate(config.geometries):
-        geometries.append(GeometryBox(space, color=colors[i % len(colors)], oversize=config.oversize, **geometry))
-        rendergeometries.append(GeometryBox(renderspace, color=colors[i % len(colors)], **geometry))
+        geometries.append(GeometryBox(space, oversize=config.oversize, **geometry))
+        rendergeometries.append(GeometryBox(renderspace, **geometry))
 
     # Create and populate two lists of monitors
     monitors = []

@@ -18,13 +18,21 @@ def move_all(geometries, moves, monitors=None, values=None):
     else:
         raise MoveError("No monitors or values provided")
 
-    for move, geometry in zip(moves, geometries):
-        m = move(axes)
-        if type(m) is Transformation:
-            geometry.set_transform(m)
-        elif m is None:
-            pass
-        else:
-            t, s = m
-            geometry.set_transform(t)
+    if isinstance(moves, list):
+        for move, geometry in zip(moves, geometries):
+            apply_move(move(axes), geometry)
+    else:
+        for move, geometry in zip(moves(axes), geometries):
+            apply_move(move, geometry)
+
+
+def apply_move(move, geometry):
+    if type(move) is Transformation:
+        geometry.set_transform(move)
+    elif move is None:
+        pass
+    else:
+        t, s = move
+        geometry.set_transform(t)
+        if s is not None:
             geometry.set_size(**s)
