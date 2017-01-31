@@ -381,6 +381,9 @@ class OperatingMode(object):
         # Stop the motors on a collision
         self.auto_stop = threading.Event()
 
+        # Re-calculate limits on demand
+        self.calc_limits = threading.Event()
+
     @property
     def code(self):
         code = 0
@@ -462,13 +465,12 @@ def main():
 
     # Need to know if this is the first execution of the main loop
     calc_limits = True
+    op_mode.calc_limits.set()
 
     # Only report for new collisions
     collision_reported = None
 
     # Initialise the pv server
-    data = pv_server.ServerData()
-    data.set_data(new_data=False)
 
     pv_server.pvdb['HI_LIM']['count'] = len(config.pvs)
     pv_server.pvdb['LO_LIM']['count'] = len(config.pvs)
@@ -478,7 +480,7 @@ def main():
     pv_server.pvdb['NAMES']['count'] = len(config.geometries)
     pv_server.pvdb['COLLIDED']['count'] = len(config.geometries)
 
-    driver = pv_server.start_thread(config.control_pv, data, op_mode)
+    driver = pv_server.start_thread(config.control_pv, op_mode)
 
     driver.setParam('OVERSIZE', config.oversize)
     driver.setParam('COARSE', config.coarse)
@@ -499,11 +501,14 @@ def main():
         move_all(geometries, moves, frozen)
 
         # Check if the oversize has been changed, ahead of any collision calcs
-        if data.get_data('new_data'):
-            data.set_data(new_data=False)
+        if driver.new_data.isSet():
             for geometry in geometries:
                 geometry.set_size(oversize=driver.getParam('OVERSIZE'))
-            calc_limits = True
+            driver.new_data.clear()
+            op_mode.calc_limits.set()
+
+        if driver.getParam("CALC") != 0:
+            op_mode.calc_limits.set()
 
         # Check for collisions
         collisions = collide(geometries, ignore)
@@ -544,7 +549,7 @@ def main():
 
         new_limits = []
 
-        if fresh or moving or calc_limits:
+        if fresh or moving or op_mode.calc_limits.isSet():
             # Start timing for diagnostics
             time_passed = time()
 
@@ -586,7 +591,8 @@ def main():
                 if renderer.is_alive() is False:
                     renderer.start()
 
-            calc_limits = False
+            op_mode.calc_limits.clear()
+            driver.setParam("CALC", False)
         else:
             # Restore the configuration limits
             if op_mode.set_limits.is_set() is False:

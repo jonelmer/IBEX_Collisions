@@ -95,14 +95,19 @@ pvdb = {
         'type': 'int',
         # 'scan': 1,
     },
+    'CALC': {
+        'count': 1,
+        'type': 'int',
+    },
 }
 
 
 class MyDriver(Driver):
-    def __init__(self, data, op_mode):
+    def __init__(self, op_mode):
         super(MyDriver, self).__init__()
-        self.__data = data
         self.op_mode = op_mode
+
+        self.new_data = threading.Event()
 
     def read(self, reason):
         # logging.debug("Reading '%s'...", reason)
@@ -137,18 +142,17 @@ class MyDriver(Driver):
             elif value == 0:
                 self.op_mode.set_limits.clear()
         elif reason == 'OVERSIZE':
-            self.__data.set_data(OVERSIZE=value, COARSE=4 * value, new_data=True)
             self.setParam(reason, value)
             self.setParam('COARSE', 4 * value)
         elif reason == 'COARSE':
-            self.__data.set_data(OVERSIZE=value / 4, COARSE=value, new_data=True)
             self.setParam(reason, value)
             self.setParam('OVERSIZE', value / 4)
         elif reason == 'FINE':
-            self.__data.set_data(FINE=value, new_data=True)
             self.setParam(reason, value)
+        elif reason == 'CALC':
+            self.setParam(reason, True)
 
-        self.__data.set_data(new_data=True)
+        self.new_data.set()
         return status
 
 
@@ -188,7 +192,7 @@ if __name__ == '__main__':
     pass
 
 
-def start_thread(prefix, data, op_mode):
+def start_thread(prefix, op_mode):
 
     server = SimpleServer()
     server.createPV(prefix, pvdb)
@@ -199,6 +203,6 @@ def start_thread(prefix, data, op_mode):
     server_thread.daemon = True
     server_thread.start()
 
-    driver = MyDriver(data, op_mode)
+    driver = MyDriver(op_mode)
 
     return driver
