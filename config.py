@@ -222,8 +222,8 @@ def move_everything(axes):
     yield t
 
 
-moves = [move_z_stage, move_rot_stage, move_bot_arc, move_top_arc,
-         move_fine_z, move_y_base, move_y_stage, move_x_stage, move_sample]
+# moves = [move_z_stage, move_rot_stage, move_bot_arc, move_top_arc,
+#          move_fine_z, move_y_base, move_y_stage, move_x_stage, move_sample]
 
 moves = move_everything
 

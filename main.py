@@ -594,7 +594,7 @@ def main():
 
         # Stop us overloading the limits
         if not new_limits == old_limits:
-            threading.Thread(target=set_limits, args=(new_limits, pvs))
+            threading.Thread(target=set_limits, args=(new_limits, pvs)).start()
 
         old_limits = new_limits[:]
 
