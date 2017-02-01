@@ -31,7 +31,8 @@ The system interfaces with the IBEX server using EPICS via the Channel Access pr
  
 For collision detection, the system uses the Open Dynamics Engine, through the python module `pyode`.
  
-The system also produces a visual rendering of the system, for diagnostic and development purposes. This uses the `pyopengl` bindings, which need `glut.dll` and `glut32.dll`, which are included in the repository.
+The system also produces a visual rendering of the system, for diagnostic and development purposes. This uses the `pyopengl` bindings, which need `glut.dll` and `glut32.dll`, which are included in the repository. 
+***I need to work out  where these came from and what license they need.***
  
 ## System Overview
 
@@ -41,8 +42,44 @@ The system comprises four main parts:
 3. PV server
 4. Graphic visualiser
 
+Additionally the instrument geometry configuration is loaded in from `config.py`.
+
+### Collision Detector
+
+The collision detector is responsible for stopping motion if a collision occurs. The collision detector must be executed frequently, to stop collisions as promptly as possible. ***TODO: The collision detector runs in a separate thread, to allow it to operate independent to the main program.***
+
+The system uses the Open Dynamics Engine (ODE) to calculate whether any bodies have collided, using the function `collide`. A list of `GeomBox` objects are created, one for each body, each containing an `ode.GeomBox` object. The `ode.Collide` function is used to determine whether each pair of geometries has collided. The `config.ignore` list ensures that only the geometries of interest are analysed, reducing the computational load. 
+*Maybe a "collisions of interest" list would be more useful??*
+
+When a collision is detected, the system sends a `.STOP` message to each motor that is currently moving, using genie python.
+
+
+### Limit Calculator
+
+The system dynamically calculates limits by stepping each motor through its range of motion, and checking for collisions, using the `auto_seek_limits` function. This can be approached as a sequential search, where `collide` is evaluated at each step along the motion. Each direction is searched first with a coarse step, then with a fine step. 
+
+This works on the assumption that most collisions behave like a [rectangular function](https://en.wikipedia.org/wiki/Rectangular_function), and remain collided for a significant portion of movement. Typically this is true for linear motion, but when objects are inclined or in rotary cases the duration of the rectangle function is short. This means that for any step size, the search is not guaranteed to find collision.
+
+If the geometries of the computer model are sufficiently larger than the real-world system, the search step can be optimised.
+
+For a given increase in size `S` applied to each face of the box:
+```
+modeled size = actual size + 2S
+```
+Assuming a head on collision and considering only linear movement of the seeking axis, a collision of the real world system occurs once the model has collided by at least `2S`. Furthermore, taking two objects with an actual size of zero, and a modeled size of `2S`, a "head-on" collision is maintained for `4S`. 
+In the case of an inclined collision, the collision will persist for longer as the collision path through the centre of the object increases with angle. 
+In the case of a glancing collision, whereby the collision of the model does not infer a collision of the real world system, a collision of the model may or may not be detected, but the real-world system will never be at risk.
+Therefore any search step of `4S` or less will detect a real-world collision. 
+
+For movements which involve rotation however, the search step must be chosen to ensure that no point on the body moves by more than `4S` in any direction. To achieve this, the system calculates the positions of each vertex of the body at each step. The magnitude of the move is calculated, and if greater than `4S`, the search step can be reduced. The magnitude of the move is re-calculated and the step reduced until the step is less than or equal to `4S`. 
+
+Once an appropriate step size has been found, the magnitude of the move need not be calculated further, reducing the computational load. This assumes that the movement of any body can be expressed as a linear function of the seeking axis - each subsequent step in the seeking process produces a movement of magnitude equal to the first step.
 
 ## A title...
+
+### Op modes
+
+### A note on dial *vs* user coords
 
 ### Describing Instrument Geometry
 
@@ -56,30 +93,6 @@ Parameter List  | Description
 `ignore`        | A list of collision pairs which are not of interest. This is useful for bodies which are mechanically connected - we don't care if the carriage collides with it's slide.
 `pvs`           | A list of motor PVs for each motor axis. The order of these PVs is the order of the `Monitor` objects given to the the `moves` functions.
 `hardlimits`    | The end limits of each axis of motion. Nominally the end of travel, though tighter limits can be imposed. The dynamically calculated limits are always within these values. 
-
-### Detecting Collisions
-
-The system uses the Open Dynamics Engine (ODE) to calculate whether any bodies have collided, using the function `collide`. A list of `GeomBox` objects are created, one for each body, each containing an `ode.GeomBox` object. The `ode.Collide` function us used to determine whether each pair of geometries has collided. The `config.ignore` list reduces the computation required so that only the geometries of interest are analysed. *Maybe a "collisions of interest" list would be more useful??*
-
-### Dynamically Calculating Limits
-
-The system dynamically calculates limits by stepping each motor through its range of motion, and checking for collisions, using the `seek_limits` function. This can be approached as a sequential search, where `collide` is evaluated at each step along the motion. Each direction is searched first with a coarse step, then with a fine step. 
-
-This works on the assumption that most collisions behave like a [rectangular function](https://en.wikipedia.org/wiki/Rectangular_function), and remain collided for a significant portion of movement. Typically this is true for linear motion, but when objects are inclined or in rotary cases the duration of the rectangle function is short. This means that for any step size, the search is not guaranteed to find collision.
-
-If the geometries of the computer model are sufficiently larger than the real-world system, the search step can be optimised.
-
-For a given increase in size `S` applied to each dimension:
-```
-modeled size = actual size + 2S
-```
-Assuming a head on collision, a collision of the real world system occurs once the model has collided by at least `2S`. Furthermore, taking two objects with an actual size of zero, and a modeled size of `2S`, a "head-on" collision is maintained for `4S`. Therefore any search step of `4S` or less will detect a real-world collision. 
-In the case of an inclined collision, the collision will persist for longer as the collision path through the centre of the object increases with angle. 
-In the case of a glancing collision, whereby the collision of the model does not infer a collision of the real world system, a collision of the model may or may not be detected, but the real-world system will never be at risk.
-
-For a rotating object however, the search step must ensure that the body does not move by more than `4S` in any direction. 
-
-*The displacement of each body must be checked following the rotation, to ensure it remains less than `4S`.*
 
 
 
