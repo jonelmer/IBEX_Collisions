@@ -135,7 +135,7 @@ class Transformation(object):
         """
         Reshape to the format expected by OpenGL
         """
-        return np.reshape(self.matrix.T, (1, 16))[0]
+        return np.reshape(self.matrix.T, 16)
 
     # Doesn't get the same result as below!
     # def get_inverse(self):
