@@ -41,106 +41,106 @@ for i in range(0, 9):
         ignore.append([i, j])
 
 
-# Generate move functions
-
-def stationary(axes):
-    pass
-
-
-# Z stage
-def move_z_stage(axes):
-    t = Transformation()
-
-    size = axes[0] + z_stage['size'][2]
-
-    t.translate(z=-beam_ref + size / 2)
-
-    return t, dict(z=size)
-
-
-# Rotation
-def move_rot_stage(axes):
-    t = Transformation()
-    t.translate(z=-beam_ref + axes[0] + z_stage['size'][2] + rot_stage['size'][2] / 2)
-    t.rotate(rz=radians(axes[1]))
-
-    return t
-
-
-# Bottom arc
-def move_bot_arc(axes):
-    t = Transformation()
-
-    t.translate(z=-centre_arc - (bot_arc['size'][2] / 2 + top_arc['size'][2]))
-    t.rotate(ry=radians(axes[2]))
-    t.translate(z=centre_arc + (bot_arc['size'][2] / 2 + top_arc['size'][2]))
-
-    t.translate(z=-beam_ref + axes[0] + z_stage['size'][2] + rot_stage['size'][2] + bot_arc['size'][2] / 2)
-    t.rotate(rz=radians(axes[1]))
-
-    return t
-
-
-# Top arc
-def move_top_arc(axes):
-    t = move_bot_arc(axes)
-
-    t.translate(z=+(centre_arc + top_arc['size'][2] / 2), forward=False)
-    t.rotate(rx=radians(axes[3]), forward=False)
-    t.translate(z=-(centre_arc + top_arc['size'][2] / 2), forward=False)
-
-    t.translate(z=top_arc['size'][2] / 2 + bot_arc['size'][2] / 2, forward=False)
-
-    return t
-
-
-# Fine Z
-def move_fine_z(axes):
-    t = move_top_arc(axes)
-
-    size = axes[4] + fine_z['size'][2]
-
-    t.translate(z=size / 2 + top_arc['size'][2] / 2, forward=False)
-
-    return t, dict(z=size)
-
-
-# Base of Y stage (top of fine Z)
-def move_y_base(axes):
-    t = move_top_arc(axes)
-
-    size = axes[4] + fine_z['size'][2]
-
-    t.translate(z=size + top_arc['size'][2] / 2 + y_base['size'][2] / 2, forward=False)
-
-    return t
-
-
-# Y stage
-def move_y_stage(axes):
-    t = move_y_base(axes)
-
-    t.translate(y=axes[5], z=y_base['size'][2] / 2 + y_stage['size'][2] / 2, forward=False)
-
-    return t
-
-
-# X stage
-def move_x_stage(axes):
-    t = move_y_stage(axes)
-
-    t.translate(x=axes[6], z=y_stage['size'][2] / 2 + x_stage['size'][2] / 2, forward=False)
-
-    return t
-
-
-# Sample
-def move_sample(axes):
-    t = move_x_stage(axes)
-
-    t.translate(z=x_stage['size'][2] / 2 + sample['size'][2] / 2, forward=False)
-
-    return t
+# # Generate move functions
+#
+# def stationary(axes):
+#     pass
+#
+#
+# # Z stage
+# def move_z_stage(axes):
+#     t = Transformation()
+#
+#     size = axes[0] + z_stage['size'][2]
+#
+#     t.translate(z=-beam_ref + size / 2)
+#
+#     return t, dict(z=size)
+#
+#
+# # Rotation
+# def move_rot_stage(axes):
+#     t = Transformation()
+#     t.translate(z=-beam_ref + axes[0] + z_stage['size'][2] + rot_stage['size'][2] / 2)
+#     t.rotate(rz=radians(axes[1]))
+#
+#     return t
+#
+#
+# # Bottom arc
+# def move_bot_arc(axes):
+#     t = Transformation()
+#
+#     t.translate(z=-centre_arc - (bot_arc['size'][2] / 2 + top_arc['size'][2]))
+#     t.rotate(ry=radians(axes[2]))
+#     t.translate(z=centre_arc + (bot_arc['size'][2] / 2 + top_arc['size'][2]))
+#
+#     t.translate(z=-beam_ref + axes[0] + z_stage['size'][2] + rot_stage['size'][2] + bot_arc['size'][2] / 2)
+#     t.rotate(rz=radians(axes[1]))
+#
+#     return t
+#
+#
+# # Top arc
+# def move_top_arc(axes):
+#     t = move_bot_arc(axes)
+#
+#     t.translate(z=+(centre_arc + top_arc['size'][2] / 2), forward=False)
+#     t.rotate(rx=radians(axes[3]), forward=False)
+#     t.translate(z=-(centre_arc + top_arc['size'][2] / 2), forward=False)
+#
+#     t.translate(z=top_arc['size'][2] / 2 + bot_arc['size'][2] / 2, forward=False)
+#
+#     return t
+#
+#
+# # Fine Z
+# def move_fine_z(axes):
+#     t = move_top_arc(axes)
+#
+#     size = axes[4] + fine_z['size'][2]
+#
+#     t.translate(z=size / 2 + top_arc['size'][2] / 2, forward=False)
+#
+#     return t, dict(z=size)
+#
+#
+# # Base of Y stage (top of fine Z)
+# def move_y_base(axes):
+#     t = move_top_arc(axes)
+#
+#     size = axes[4] + fine_z['size'][2]
+#
+#     t.translate(z=size + top_arc['size'][2] / 2 + y_base['size'][2] / 2, forward=False)
+#
+#     return t
+#
+#
+# # Y stage
+# def move_y_stage(axes):
+#     t = move_y_base(axes)
+#
+#     t.translate(y=axes[5], z=y_base['size'][2] / 2 + y_stage['size'][2] / 2, forward=False)
+#
+#     return t
+#
+#
+# # X stage
+# def move_x_stage(axes):
+#     t = move_y_stage(axes)
+#
+#     t.translate(x=axes[6], z=y_stage['size'][2] / 2 + x_stage['size'][2] / 2, forward=False)
+#
+#     return t
+#
+#
+# # Sample
+# def move_sample(axes):
+#     t = move_x_stage(axes)
+#
+#     t.translate(z=x_stage['size'][2] / 2 + sample['size'][2] / 2, forward=False)
+#
+#     return t
 
 
 def move_everything(axes):

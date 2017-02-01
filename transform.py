@@ -14,6 +14,7 @@ class TransformError(Exception):
 class Transformation(object):
     # Initialise the transformation matrix to an identity
     def __init__(self, transform=None):
+        self.matrix = None
         self.identity()
         if transform is not None:
             self.matrix[:] = transform.matrix
@@ -33,10 +34,10 @@ class Transformation(object):
 
         # Rotation about X
         if rx is not 0:
-            rotate = np.array([[1, 0, 0, 0],
-                               [0, cos(rx), -sin(rx), 0],
-                               [0, sin(rx), cos(rx), 0],
-                               [0, 0, 0, 1]])
+            rotate = np.array([[1., 0., 0., 0.],
+                               [0., cos(rx), -sin(rx), 0.],
+                               [0., sin(rx), cos(rx), 0.],
+                               [0., 0., 0., 1.]])
             if forward:
                 self.matrix = np.dot(rotate, self.matrix)
             else:
@@ -44,10 +45,10 @@ class Transformation(object):
 
         # Rotation about Y
         if ry is not 0:
-            rotate = np.array([[cos(ry), 0, -sin(ry), 0],
-                               [0, 1, 0, 0],
-                               [sin(ry), 0, cos(ry), 0],
-                               [0, 0, 0, 1]])
+            rotate = np.array([[cos(ry), 0., -sin(ry), 0.],
+                               [0., 1., 0., 0.],
+                               [sin(ry), 0., cos(ry), 0.],
+                               [0., 0., 0., 1.]])
             if forward:
                 self.matrix = np.dot(rotate, self.matrix)
             else:
@@ -55,10 +56,10 @@ class Transformation(object):
 
         # Rotation about Z
         if rz is not 0:
-            rotate = np.array([[cos(rz), -sin(rz), 0, 0],
-                               [sin(rz), cos(rz), 0, 0],
-                               [0, 0, 1, 0],
-                               [0, 0, 0, 1]])
+            rotate = np.array([[cos(rz), -sin(rz), 0., 0.],
+                               [sin(rz), cos(rz), 0., 0.],
+                               [0., 0., 1., 0.],
+                               [0., 0., 0., 1.]])
             if forward:
                 self.matrix = np.dot(rotate, self.matrix)
             else:
@@ -73,25 +74,25 @@ class Transformation(object):
         """
         if forward:
              self.matrix = np.dot(
-                 np.array([[1, 0, 0, x],
-                           [0, 1, 0, y],
-                           [0, 0, 1, z],
-                           [0, 0, 0, 1]]), self.matrix)
+                 np.array([[1., 0., 0., x],
+                           [0., 1., 0., y],
+                           [0., 0., 1., z],
+                           [0., 0., 0., 1.]]), self.matrix)
         else:
             self.matrix = np.dot(self.matrix,
-                                 np.array([[1, 0, 0, x],
-                                           [0, 1, 0, y],
-                                           [0, 0, 1, z],
-                                           [0, 0, 0, 1]]))
+                                 np.array([[1., 0., 0., x],
+                                           [0., 1., 0., y],
+                                           [0., 0., 1., z],
+                                           [0., 0., 0., 1.]]))
 
     def scale(self, x=1, y=1, z=1):
         """
         Scales in x, y and z
         """
-        self.matrix = np.dot(np.array([[x, 0, 0, 0],
-                                       [0, y, 0, 0],
-                                       [0, 0, z, 0],
-                                       [0, 0, 0, 1]]), self.matrix)
+        self.matrix = np.dot(np.array([[x,  0., 0., 0.],
+                                       [0.,  y, 0., 0.],
+                                       [0., 0., z,  0.],
+                                       [0., 0., 0., 1.]]), self.matrix)
 
     def evaluate(self, position):
         """

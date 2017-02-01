@@ -153,7 +153,6 @@ def auto_seek(start_step_size, start_values, end_value, geometries, moves, axis_
                     # print "Max delta %f > %f step size for axis %d" % (delta, start_step_size, axis_index)
 
                     # Work out a new step size
-                    #step_size *= np.fix((start_step_size/delta)*1000)/1000
                     step_size *= start_step_size/delta
                     # print "New step size of %f for axis %d" % (step_size, axis_index)
                     last_value = None
@@ -359,8 +358,8 @@ def collide(geometries, ignore):
 # Set the high and low dial limits for each motor
 def set_limits(limits, pvs):
     for limit, pv in zip(limits, pvs):
-        #threading.Thread(target=set_pv, args=(pv + '.DLLM', limit[0]))
-        #threading.Thread(target=set_pv, args=(pv + '.DHLM', limit[1]))
+        # threading.Thread(target=set_pv, args=(pv + '.DLLM', limit[0]))
+        # threading.Thread(target=set_pv, args=(pv + '.DHLM', limit[1]))
         # threading.Thread(target=set_pv, args=(pv + '.DLLM', np.min(limit)))
         # threading.Thread(target=set_pv, args=(pv + '.DHLM', np.max(limit)))
         # set_pv(pv + '.DLLM', np.min(limit))
@@ -464,7 +463,6 @@ def main():
         renderer.daemon = True
 
     # Need to know if this is the first execution of the main loop
-    calc_limits = True
     op_mode.calc_limits.set()
 
     # Only report for new collisions
@@ -472,13 +470,13 @@ def main():
 
     # Initialise the pv server
     # Loop over the pvdb and update the counts based on the number of aves/bodies
-    for dict in pv_server.pvdb:
-        for key, val in pv_server.pvdb[dict].items():
+    for pv in pv_server.pvdb:
+        for key, val in pv_server.pvdb[pv].items():
             if key == 'count':
                 if val is pv_server.axis_count:
-                    pv_server.pvdb[dict]['count'] = len(config.pvs)
+                    pv_server.pvdb[pv]['count'] = len(config.pvs)
                 if val is pv_server.body_count:
-                    pv_server.pvdb[dict]['count'] = len(config.geometries)
+                    pv_server.pvdb[pv]['count'] = len(config.geometries)
 
     driver = pv_server.start_thread(config.control_pv, op_mode)
 
