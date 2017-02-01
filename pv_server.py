@@ -2,16 +2,16 @@ from pcaspy import SimpleServer, Driver
 from pcaspy.tools import ServerThread
 import random
 import threading
-import logging
 
-# Make sure to run: `set EPICS_CA_ADDR_LIST=127.255.255.255 130.246.51.255 127.0.0.1:50640` then restart ibex server
 # Use `caget -S` to print a char array as a string
 
 # Configure this env with:
 # `EPICS_CAS_BEACON_ADDR_LIST=127.255.255.255`
 # `EPICS_CAS_INTF_ADDR_LIST=127.0.0.1`
 
-count = 1
+# Unique objects for updating counts with the number of axes/bodies
+axis_count = object()
+body_count = object()
 
 pvdb = {
     'RAND': {
@@ -25,7 +25,7 @@ pvdb = {
         'type': 'char',
     },
     'NAMES': {
-        'count': count,
+        'count': body_count,
         'type': 'string',
     },
     'MODE': {
@@ -46,32 +46,32 @@ pvdb = {
         'type': 'int',
     },
     'HI_LIM': {
-        'count': count,
+        'count': axis_count,
         'type': 'float',
         'prec': 3,
     },
     'LO_LIM': {
-        'count': count,
+        'count': axis_count,
         'type': 'float',
         'prec': 3,
     },
     'TRAVEL': {
-        'count': count,
+        'count': axis_count,
         'type': 'float',
         'prec': 3,
     },
     'TRAV_F': {
-        'count': count,
+        'count': axis_count,
         'type': 'float',
         'prec': 3,
     },
     'TRAV_R': {
-        'count': count,
+        'count': axis_count,
         'type': 'float',
         'prec': 3,
     },
     'COLLIDED': {
-        'count': count,
+        'count': body_count,
         'type': 'int',
     },
     'OVERSIZE': {
@@ -154,42 +154,6 @@ class MyDriver(Driver):
 
         self.new_data.set()
         return status
-
-
-class ServerDataException(Exception):
-    pass
-
-
-class ServerData(object):
-    # Threadsafe class for holding arbitrary data
-    def __init__(self):
-        self.lock = threading.Lock()
-
-        # A private dictionary to hold our data
-        self.__data = dict(data="Some dummy data")
-
-    def get_data(self, key=None):
-        # Returns the dictionary of data
-        # e.g.: get_data()['data'] ==> "Some dummy data"
-        #   or: get_data('data')   ==> "Some dummy data"
-        with self.lock:
-            if key is None:
-                return self.__data
-            else:
-                if key in self.__data:
-                    return self.__data[key]
-                else:
-                    raise ServerDataException("The key supplied is not in the data dict")
-
-    def set_data(self, **data):
-        # Sets only the provided data
-        # e.g.: set_data(x=10) will not affect __data['y']
-        with self.lock:
-            self.__data.update(data)
-
-
-if __name__ == '__main__':
-    pass
 
 
 def start_thread(prefix, op_mode):

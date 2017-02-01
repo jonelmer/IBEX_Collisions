@@ -471,14 +471,14 @@ def main():
     collision_reported = None
 
     # Initialise the pv server
-
-    pv_server.pvdb['HI_LIM']['count'] = len(config.pvs)
-    pv_server.pvdb['LO_LIM']['count'] = len(config.pvs)
-    pv_server.pvdb['TRAVEL']['count'] = len(config.pvs)
-    pv_server.pvdb['TRAV_F']['count'] = len(config.pvs)
-    pv_server.pvdb['TRAV_R']['count'] = len(config.pvs)
-    pv_server.pvdb['NAMES']['count'] = len(config.geometries)
-    pv_server.pvdb['COLLIDED']['count'] = len(config.geometries)
+    # Loop over the pvdb and update the counts based on the number of aves/bodies
+    for dict in pv_server.pvdb:
+        for key, val in pv_server.pvdb[dict].items():
+            if key == 'count':
+                if val is pv_server.axis_count:
+                    pv_server.pvdb[dict]['count'] = len(config.pvs)
+                if val is pv_server.body_count:
+                    pv_server.pvdb[dict]['count'] = len(config.geometries)
 
     driver = pv_server.start_thread(config.control_pv, op_mode)
 
