@@ -73,11 +73,11 @@ class Transformation(object):
         otherwise it is:      new matrix = old matrix . translation
         """
         if forward:
-             self.matrix = np.dot(
-                 np.array([[1., 0., 0., x],
-                           [0., 1., 0., y],
-                           [0., 0., 1., z],
-                           [0., 0., 0., 1.]]), self.matrix)
+            self.matrix = np.dot(
+                np.array([[1., 0., 0., x],
+                          [0., 1., 0., y],
+                          [0., 0., 1., z],
+                          [0., 0., 0., 1.]]), self.matrix)
         else:
             self.matrix = np.dot(self.matrix,
                                  np.array([[1., 0., 0., x],
@@ -89,9 +89,9 @@ class Transformation(object):
         """
         Scales in x, y and z
         """
-        self.matrix = np.dot(np.array([[x,  0., 0., 0.],
-                                       [0.,  y, 0., 0.],
-                                       [0., 0., z,  0.],
+        self.matrix = np.dot(np.array([[x, 0., 0., 0.],
+                                       [0., y, 0., 0.],
+                                       [0., 0., z, 0.],
                                        [0., 0., 0., 1.]]), self.matrix)
 
     def evaluate(self, position):
@@ -175,9 +175,9 @@ class Transformation(object):
         det_1 = 1. / det_1
 
         ret = [(i5 * i10 - i6 * i9) * det_1, -(i1 * i10 - i2 * i9) * det_1, (i1 * i6 - i2 * i5) * det_1, 0.0,
-                  -(i4 * i10 - i6 * i8) * det_1, (i0 * i10 - i2 * i8) * det_1, -(i0 * i6 - i2 * i4) * det_1, 0.0,
-                  (i4 * i9 - i5 * i8) * det_1, -(i0 * i9 - i1 * i8) * det_1, (i0 * i5 - i1 * i4) * det_1, 0.0,
-                  0.0, 0.0, 0.0, 1.0]
+               -(i4 * i10 - i6 * i8) * det_1, (i0 * i10 - i2 * i8) * det_1, -(i0 * i6 - i2 * i4) * det_1, 0.0,
+               (i4 * i9 - i5 * i8) * det_1, -(i0 * i9 - i1 * i8) * det_1, (i0 * i5 - i1 * i4) * det_1, 0.0,
+               0.0, 0.0, 0.0, 1.0]
 
         m = ret
         m[12] = - (i12 * m[0] + i13 * m[4] + i14 * m[8])
