@@ -1,6 +1,5 @@
 import logging
 import threading
-import sys
 from time import sleep, time
 
 import numpy as np
@@ -8,82 +7,16 @@ import ode
 from genie_python.genie_startup import *
 
 import config
-import render
 import pv_server
+import render
+from geometry import GeometryBox
+from isis_logger import IsisLogger
 from monitor import Monitor, DummyMonitor
 from move import move_all
-from transform import Transformation
-
-# This should be from C:\Instrument\Apps\EPICS\ISIS\inst_servers\master\server_common\loggers\isis_logger.py
-from isis_logger import IsisLogger
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s (%(threadName)-2s) %(message)s',
                     )
-
-
-class GeometryBox(object):
-    def __init__(self, space, position=(0, 0, 0), size=(1, 1, 1), color=(1, 1, 1), oversize=1, name=None):
-
-        # Set parameters for drawing the body
-        self.color = color
-        self.size = list(size)
-        self.oversize = oversize
-
-        # Create a box geom for collision detection
-        self.geom = ode.GeomBox(space, lengths=[s + 2 + oversize for s in self.size])
-        self.geom.setPosition(position)
-
-        # A friendly name
-        self.name = name
-
-    # Set the size of the ODE geometry
-    def set_size(self, x=None, y=None, z=None, oversize=None):
-        # Only need to set the size of dimensions supplied
-        if x is not None:
-            self.size[0] = x
-        if y is not None:
-            self.size[1] = y
-        if z is not None:
-            self.size[2] = z
-        if oversize is not None:
-            self.oversize = oversize
-        self.geom.setLengths([s + 2 * self.oversize for s in self.size])
-
-    # Set the transform for the geometry
-    def set_transform(self, transform):
-        # Get the rotation and position elements from the transformation matrix
-        rot, pos = transform.split()
-
-        # Reshape the rotation matrix into a ODE friendly format
-        rot = np.reshape(rot, 9)
-
-        # Apply the translation and rotation to the ODE geometry
-        self.geom.setPosition(pos)
-        self.geom.setRotation(rot)
-
-    def get_transform(self):
-        t = Transformation()
-        t.join(self.geom.getRotation(), self.geom.getPosition())
-        return t
-
-    def get_vertices(self):
-        vertices = np.array([(-0.5, -0.5, 0.5),
-                             (0.5, -0.5, 0.5),
-                             (0.5, 0.5, 0.5),
-                             (-0.5, 0.5, 0.5),
-                             (-0.5, -0.5, -0.5),
-                             (0.5, -0.5, -0.5),
-                             (0.5, 0.5, -0.5),
-                             (-0.5, 0.5, -0.5)])
-
-        vertices *= self.geom.getLengths()
-
-        t = self.get_transform()
-
-        vertices = [t.evaluate(v) for v in vertices]
-
-        return vertices
 
 
 def auto_seek(start_step_size, start_values, end_value, geometries, moves, axis_index, ignore, fine_step=None):
@@ -295,14 +228,14 @@ def main():
 
     # Create and populate lists of geometries
     geometries = []
-    rendergeometries = []
+    render_geometries = []
     for i, geometry in enumerate(config.geometries):
         geometries.append(GeometryBox(space, oversize=config.oversize, **geometry))
-        rendergeometries.append(GeometryBox(renderspace, **geometry))
+        render_geometries.append(GeometryBox(renderspace, **geometry))
 
     # Create and populate two lists of monitors
     monitors = []
-    ismoving = []
+    is_moving = []
     for pv in pvs:
         m = Monitor(pv + ".DRBV")
         m.start()
@@ -310,7 +243,7 @@ def main():
 
         moving = Monitor(pv + ".MOVN")
         moving.start()
-        ismoving.append(moving)
+        is_moving.append(moving)
 
     # Create a shared operating mode object to control the main thread
     op_mode = OperatingMode()
@@ -323,7 +256,7 @@ def main():
 
     if 'blind' not in sys.argv:
         # Initialise the render thread, and set it to daemon - won't prevent the main thread from exiting
-        renderer = render.Renderer(parameters, rendergeometries, colors, monitors, pvs, moves, op_mode)
+        renderer = render.Renderer(parameters, render_geometries, colors, monitors, pvs, moves, op_mode)
         renderer.daemon = True
 
     # Need to know if this is the first execution of the main loop
@@ -395,8 +328,8 @@ def main():
 
             # Stop the moving motors based on the operating mode auto_stop
             if op_mode.auto_stop.is_set():
-                logging.debug("Stopping motors %s" % [i for i, m in enumerate(ismoving) if m.value()])
-                for moving, pv in zip(ismoving, pvs):
+                logging.debug("Stopping motors %s" % [i for i, m in enumerate(is_moving) if m.value()])
+                for moving, pv in zip(is_moving, pvs):
                     if moving.value():
                         set_pv(pv + '.STOP', 1)
         else:
@@ -405,9 +338,9 @@ def main():
             collision_reported = None
 
         # Check if there have been any changes to the .MOVN monitors
-        fresh = any([m.fresh() for m in ismoving])
+        fresh = any([m.fresh() for m in is_moving])
         # Check if any of the motors monitors are moving
-        moving = any([m.value() for m in ismoving])
+        moving = any([m.value() for m in is_moving])
 
         new_limits = []
 

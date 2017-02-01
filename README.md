@@ -35,6 +35,15 @@ The system also produces a visual rendering of the system, for diagnostic and de
  
 ## System Overview
 
+The system comprises four main parts:
+1. Collision detector
+2. Limit calculator
+3. PV server
+4. Graphic visualiser
+
+
+## A title...
+
 ### Describing Instrument Geometry
 
 The geometry of the instrument is described in `config.py`. Generally the content of this file is a set of parameter lists, where index `i` of each list refers to body `i` of the mechanical system. The various parameters are:
