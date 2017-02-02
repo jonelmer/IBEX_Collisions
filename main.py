@@ -11,7 +11,7 @@ import pv_server
 import render
 from geometry import GeometryBox
 from isis_logger import IsisLogger
-from monitor import Monitor, DummyMonitor
+from monitor import Monitor
 from move import move_all
 
 logging.basicConfig(level=logging.INFO,
@@ -120,14 +120,13 @@ def auto_seek(start_step_size, start_values, end_value, geometries, moves, axis_
     return limit
 
 
-def auto_seek_limits(geometries, ignore, moves, monitors, limits, coarse=1.0, fine=0.1):
+def auto_seek_limits(geometries, ignore, moves, values, limits, coarse=1.0, fine=0.1):
     dynamic_limits = []
-    for i in range(len(monitors)):
+    for i in range(len(values)):
         print "Seeking for axis %d" % i
-        start_values = [m.value() for m in monitors]
 
-        lower_limit = auto_seek(coarse, start_values, min(limits[i]), geometries, moves, i, ignore, fine)
-        upper_limit = auto_seek(coarse, start_values, max(limits[i]), geometries, moves, i, ignore, fine)
+        lower_limit = auto_seek(coarse, values[:], min(limits[i]), geometries, moves, i, ignore, fine)
+        upper_limit = auto_seek(coarse, values[:], max(limits[i]), geometries, moves, i, ignore, fine)
 
         dynamic_limits.append([lower_limit, upper_limit])
 
@@ -224,14 +223,17 @@ def main():
 
     # Create space objects for the live and rendered world
     space = ode.Space()
-    renderspace = ode.Space()
+    render_space = ode.Space()
+    collision_space = ode.Space()
 
     # Create and populate lists of geometries
     geometries = []
     render_geometries = []
+    collision_geometries = []
     for i, geometry in enumerate(config.geometries):
         geometries.append(GeometryBox(space, oversize=config.oversize, **geometry))
-        render_geometries.append(GeometryBox(renderspace, **geometry))
+        render_geometries.append(GeometryBox(render_space, **geometry))
+        collision_geometries.append(GeometryBox(collision_space, oversize=config.oversize, **geometry))
 
     # Create and populate two lists of monitors
     monitors = []
@@ -251,6 +253,9 @@ def main():
     op_mode.set_limits.set()
     op_mode.auto_stop.set()
 
+    # Start a logger
+    logger = IsisLogger()
+
     # Create a shared render parameter object to update the render thread
     parameters = render.RenderParams()
 
@@ -261,9 +266,6 @@ def main():
 
     # Need to know if this is the first execution of the main loop
     op_mode.calc_limits.set()
-
-    # Only report for new collisions
-    collision_reported = None
 
     # Initialise the pv server
     # Loop over the pvdb and update the counts based on the number of aves/bodies
@@ -282,60 +284,33 @@ def main():
     driver.setParam('FINE', config.fine)
     driver.setParam('NAMES', [g['name'] for g in config.geometries])
 
-    # Start a logger
-    logger = IsisLogger()
+    # Only report for new collisions
+    collision_detector = CollisionDetector(driver, collision_geometries, config.moves, monitors, config.ignore,
+                                           is_moving, logger, op_mode, config.pvs)
+    collision_detector.start()
 
     # Main loop
     while True:
 
         # Freeze the positions of our current monitors by creating some dummies
         # This stops the threads from trying to reading each monitor sequentially, and holding each other up
-        frozen = [DummyMonitor(m.value()) for m in monitors]
+        frozen = [m.value() for m in monitors]
 
         # Execute the move
-        move_all(geometries, moves, frozen)
+        move_all(geometries, moves, values=frozen)
 
         # Check if the oversize has been changed, ahead of any collision calcs
         if driver.new_data.isSet():
-            for geometry in geometries:
+            for geometry, collision_geometry in zip(geometries, collision_geometries):
                 geometry.set_size(oversize=driver.getParam('OVERSIZE'))
+                collision_geometry.set_size(oversize=driver.getParam('OVERSIZE'))
             driver.new_data.clear()
             op_mode.calc_limits.set()
 
         if driver.getParam("CALC") != 0:
             op_mode.calc_limits.set()
 
-        # Check for collisions
-        collisions = collide(geometries, ignore)
-
-        # Get some data to the user:
-        driver.setParam('COLLIDED', [int(c) for c in collisions])
-
-        # If there has been a collision:
-        if any(collisions):
-            # Message:
-            msg = "Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]]))
-
-            # Log the collisions
-            logging.debug("Collisions on %s", [i for i in np.where(collisions)[0]])
-            driver.setParam('MSG', msg)
-            driver.setParam('SAFE', 0)
-
-            # Log to the IOC log
-            if collision_reported is None or not collisions == collision_reported:
-                logger.write_to_log(msg, "MAJOR", "COLLIDE")
-                collision_reported = collisions[:]
-
-            # Stop the moving motors based on the operating mode auto_stop
-            if op_mode.auto_stop.is_set():
-                logging.debug("Stopping motors %s" % [i for i, m in enumerate(is_moving) if m.value()])
-                for moving, pv in zip(is_moving, pvs):
-                    if moving.value():
-                        set_pv(pv + '.STOP', 1)
-        else:
-            driver.setParam('MSG', "No collisions detected.")
-            driver.setParam('SAFE', 1)
-            collision_reported = None
+        collisions = collision_detector.collisions
 
         # Check if there have been any changes to the .MOVN monitors
         fresh = any([m.fresh() for m in is_moving])
@@ -374,10 +349,10 @@ def main():
             driver.setParam('TIME', time_passed)
             driver.setParam('HI_LIM', [l[1] for l in dynamic_limits])
             driver.setParam('LO_LIM', [l[0] for l in dynamic_limits])
-            driver.setParam('TRAVEL', [min([l[0] - m.value(), l[1] - m.value()], key=abs)
+            driver.setParam('TRAVEL', [min([l[0] - m, l[1] - m], key=abs)
                                        for l, m in zip(dynamic_limits, frozen)])
-            driver.setParam('TRAV_F', [l[1] - m.value() for l, m in zip(dynamic_limits, frozen)])
-            driver.setParam('TRAV_R', [l[0] - m.value() for l, m in zip(dynamic_limits, frozen)])
+            driver.setParam('TRAV_F', [l[1] - m for l, m in zip(dynamic_limits, frozen)])
+            driver.setParam('TRAV_R', [l[0] - m for l, m in zip(dynamic_limits, frozen)])
 
             driver.updatePVs()
 
@@ -410,6 +385,80 @@ def main():
 
         if 'return' in sys.argv:
             return
+
+
+def detect_collisions(collision_reported, driver, geometries, ignore, is_moving, logger, op_mode, pvs):
+    # Check for collisions
+    collisions = collide(geometries, ignore)
+    # Get some data to the user:
+    driver.setParam('COLLIDED', [int(c) for c in collisions])
+    # If there has been a collision:
+    if any(collisions):
+        # Message:
+        msg = "Collisions on %s" % ", ".join(map(str, [geometries[i].name for i in np.where(collisions)[0]]))
+
+        # Log the collisions
+        logging.debug("Collisions on %s", [i for i in np.where(collisions)[0]])
+        driver.setParam('MSG', msg)
+        driver.setParam('SAFE', 0)
+
+        # Log to the IOC log
+        if not collisions == collision_reported:
+            logger.write_to_log(msg, "MAJOR", "COLLIDE")
+            collision_reported = collisions[:]
+
+        # Stop the moving motors based on the operating mode auto_stop
+        if op_mode.auto_stop.is_set():
+            logging.debug("Stopping motors %s" % [i for i, m in enumerate(is_moving) if m.value()])
+            for moving, pv in zip(is_moving, pvs):
+                if moving.value():
+                    set_pv(pv + '.STOP', 1)
+    else:
+        driver.setParam('MSG', "No collisions detected.")
+        driver.setParam('SAFE', 1)
+        collision_reported = None
+
+    return collisions, collision_reported
+
+
+class CollisionDetector(threading.Thread):
+    def __init__(self, driver, geometries, moves, monitors, ignore, is_moving, logger, op_mode, pvs):
+        threading.Thread.__init__(self, name="CollisionDetector")
+
+        self.driver = driver
+        self.geometries = geometries
+        self.moves = moves
+        self.monitors = monitors
+        self.ignore = ignore
+        self.is_moving = is_moving
+        self.logger = logger
+        self.op_mode = op_mode
+        self.pvs = pvs
+
+        self._lock = threading.Lock()
+        self._collisions = [0] * len(geometries)
+
+        self.setDaemon(True)
+
+    def run(self):
+        collision_reported = None
+        while True:
+            move_all(self.geometries, self.moves, monitors=self.monitors)
+            collisions, collision_reported = \
+                detect_collisions(collision_reported, self.driver, self.geometries, self.ignore, self.is_moving,
+                                  self.logger, self.op_mode, self.pvs)
+            self.collisions = collisions
+            sleep(0.05)
+
+    @property
+    def collisions(self):
+        with self._lock:
+            return self._collisions[:]
+
+    @collisions.setter
+    def collisions(self, collisions):
+        with self._lock:
+            self._collisions = collisions
 
 
 # Execute main

@@ -46,7 +46,7 @@ Additionally the instrument geometry configuration is loaded in from `config.py`
 
 ### Collision Detector
 
-The collision detector is responsible for stopping motion if a collision occurs. The collision detector must be executed frequently, to stop collisions as promptly as possible. ***TODO: The collision detector runs in a separate thread, to allow it to operate independent to the main program.***
+The collision detector is responsible for stopping motion if a collision occurs. The collision detector must be executed frequently, to stop collisions as promptly as possible. The collision detector runs in a separate thread, to allow it to operate independent to the main program, and provides a `CollisionDetector.collisions` list for interfacing with the rest of the program.
 
 The system uses the Open Dynamics Engine (ODE) to calculate whether any bodies have collided, using the function `collide`. A list of `GeomBox` objects are created, one for each body, each containing an `ode.GeomBox` object. The `ode.Collide` function is used to determine whether each pair of geometries has collided. The `config.ignore` list ensures that only the geometries of interest are analysed, reducing the computational load. 
 *Maybe a "collisions of interest" list would be more useful??*
